@@ -105,6 +105,64 @@ def diff(
 
 
 @app.command()
+def fmt(
+    file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Output file (default: rewrite in place).")
+    ] = None,
+    check: Annotated[
+        bool, typer.Option("--check", help="Exit 1 if the file would change; write nothing.")
+    ] = False,
+    lossy: Annotated[
+        bool,
+        typer.Option("--lossy", help="Format even when the rewrite would lose content."),
+    ] = False,
+) -> None:
+    """Reformat a .sysml file through the writer, refusing lossy rewrites.
+
+    Safety gate: the input and the formatted output are both re-parsed; a
+    grammar-node count mismatch or a model-level diff means the rewrite would
+    drop content, and fmt refuses unless --lossy is passed.
+    """
+    if file.suffix != ".sysml":
+        raise typer.BadParameter("fmt operates on .sysml files")
+    from sysml2kit.backends import get_backend
+    from sysml2kit.backends.sysmlpy import grammar_signature
+    from sysml2kit.diff import diff_models, render_diff
+    from sysml2kit.text import write_model
+
+    source = file.read_text()
+    backend = get_backend("sysmlpy")
+    model = backend.parse(source, filename=str(file))
+    formatted = write_model(model)
+
+    losses: list[str] = []
+    before, after = grammar_signature(source), grammar_signature(formatted)
+    for kind in sorted(set(before) | set(after)):
+        if before.get(kind, 0) != after.get(kind, 0):
+            losses.append(f"{kind}: {before.get(kind, 0)} -> {after.get(kind, 0)}")
+    entries = diff_models(model, backend.parse(formatted), by_name=True)
+    if entries:
+        losses.append(render_diff(entries))
+    if losses and not lossy:
+        typer.echo(f"{file}: refusing to format, the rewrite would change content:")
+        for loss in losses:
+            typer.echo(f"  {loss}")
+        typer.echo("Pass --lossy to format anyway.")
+        raise typer.Exit(code=1)
+
+    if check:
+        if formatted != source:
+            typer.echo(f"{file}: would be reformatted")
+            raise typer.Exit(code=1)
+        typer.echo(f"{file}: already formatted")
+        return
+    target = output or file
+    target.write_text(formatted)
+    typer.echo(f"wrote {target}")
+
+
+@app.command()
 def export(
     file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
     to: Annotated[str, typer.Option("--to", help="Output format: json or sysml.")] = "json",

@@ -255,6 +255,41 @@ def _import_texts(node: dict[str, Any]) -> list[str]:
     return texts
 
 
+#: Grammar node names counted by :func:`grammar_signature`; infrastructure
+#: wrappers whose names merely end in Usage are excluded.
+_SIGNATURE_EXTRA = frozenset({"Package", "Documentation", "NamespaceImport", "MembershipImport"})
+_SIGNATURE_EXCLUDE = frozenset({"Usage", "SubjectUsage"})
+
+
+def grammar_signature(text: str) -> dict[str, int]:
+    """Count element-level grammar nodes in the raw parse of ``text``.
+
+    ``fmt`` compares signatures of input and output: a construct the model
+    layer cannot represent (a state machine, say) still appears here, so
+    dropping it shows up as a count mismatch even though ``diff_models``
+    cannot see it.
+    """
+    sysmlpy = _require_sysmlpy()
+    raw = sysmlpy.load_grammar_antlr(text)
+    counts: dict[str, int] = {}
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            node_name = node.get("name")
+            if isinstance(node_name, str) and node_name not in _SIGNATURE_EXCLUDE:
+                if node_name.endswith(("Usage", "Definition")) or node_name in _SIGNATURE_EXTRA:
+                    counts[node_name] = counts.get(node_name, 0) + 1
+            for key, value in node.items():
+                if key != "name":
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(raw)
+    return counts
+
+
 # ------------------------------------------------------------- the backend
 class SysmlpyBackend:
     """Parse SysML v2 text with sysmlpy's ANTLR visitor and map the raw dict."""
