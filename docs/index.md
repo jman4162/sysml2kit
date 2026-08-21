@@ -3,17 +3,22 @@
 API-first Python tooling for building, querying, validating, and automating
 SysML v2 models.
 
-**Status: pre-alpha.** The 0.0.x releases publish the package skeleton; the
-object model, textual writer, traceability queries, validation, diff, and API
-client land in 0.1.0. Until then, the
-[README](https://github.com/jman4162/sysml2kit#readme) and
-[SPEC.md](https://github.com/jman4162/sysml2kit/blob/main/SPEC.md) describe
-the design: a documented subset of SysML v2 (the "pragmatic profile") as
-pydantic models, a deterministic `.sysml` writer, Systems Modeling API JSON
-interchange, and parsing delegated to a pluggable backend.
-
 ```bash
-pip install sysml2kit
+pip install sysml2kit            # build, write, query, validate, diff
+pip install "sysml2kit[parse]"   # + read .sysml files (sysmlpy backend)
 ```
 
-Reference spec release: OMG `SysML-v2-Release` tag `2026-05`.
+`sysml2kit` is the requirements/architecture/traceability layer for
+engineering automation stacks: build a system model in Python, emit standard
+SysML v2 textual notation and Systems Modeling API JSON, answer traceability
+questions (which requirements are unsatisfied? unverified? allocated where?),
+validate, and diff.
+
+Reference spec release: OMG `SysML-v2-Release` tag `2026-05`. The element
+subset and known deviations are documented in
+[concepts](concepts.md) and the repo's `SPEC.md`.
+
+Start with the [quickstart](quickstart.md), then the
+[traceability](traceability.md) page — the queries there are the point of the
+package. For antenna/RF domain content, see
+[the RF library](rf-library.md).

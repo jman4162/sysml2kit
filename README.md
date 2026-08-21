@@ -8,8 +8,10 @@
 API-first Python tooling for building, querying, validating, and automating
 SysML v2 models.
 
-> **Status: pre-alpha.** The 0.0.x releases claim the package name and publish
-> the skeleton while the core lands. Pin an exact version if you depend on it.
+> **Status: pre-alpha.** The 0.1.x line has a working core (model, writer,
+> interchange, queries, validation, diff, API client, parse backend); the API
+> may still move between minor versions. Pin an exact version if you depend
+> on it.
 
 `sysml2kit` is the requirements/architecture/traceability layer for
 engineering automation stacks: build a system model in Python, emit standard
