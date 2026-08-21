@@ -1,0 +1,10 @@
+flowchart TD
+    Vehicle["Vehicle"]
+    Vehicle__battery("battery")
+    Vehicle --> Vehicle__battery
+    Vehicle__battery__dcBus(["dcBus"])
+    Vehicle__battery --> Vehicle__battery__dcBus
+    Vehicle__motor("motor")
+    Vehicle --> Vehicle__motor
+    Vehicle__motor__dcIn(["dcIn"])
+    Vehicle__motor --> Vehicle__motor__dcIn

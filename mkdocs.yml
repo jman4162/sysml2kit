@@ -36,6 +36,7 @@ nav:
   - Traceability: traceability.md
   - Interchange: interchange.md
   - Command line: cli.md
+  - MCP server: mcp.md
   - API client: api-client.md
   - Parser backends: backends.md
   - RF library: rf-library.md

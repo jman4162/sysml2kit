@@ -50,6 +50,8 @@ dependencies = [
 # after checking the release notes.
 parse = ["sysmlpy>=0.36.2,<0.37"]
 graph = ["networkx>=3.2"]
+# mcp 2.0.0 removed mcp.server.fastmcp; stay on 1.x until the surface is ported.
+mcp = ["mcp>=1.26,<2"]
 
 [project.scripts]
 sysml2kit = "sysml2kit.cli:app"
@@ -70,11 +72,13 @@ test = [
 ]
 lint = ["mypy>=1.15", "ruff>=0.16"]
 parse-test = ["sysmlpy>=0.36.2,<0.37"]
+mcp-test = ["mcp>=1.26,<2"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.27"]
 dev = [
   { include-group = "test" },
   { include-group = "lint" },
   { include-group = "parse-test" },
+  { include-group = "mcp-test" },
   { include-group = "docs" },
 ]
 
@@ -137,8 +141,15 @@ files = ["src/sysml2kit"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["sysmlpy.*", "pint.*", "networkx.*"]
+# sysml2kit_rf_library is an optional runtime peer, not a dependency.
+module = ["sysmlpy.*", "pint.*", "networkx.*", "sysml2kit_rf_library", "sysml2kit_rf_library.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The MCP server class is typed loosely (SDK 1.x/2.x compatibility), so its
+# tool decorator is Any; the tools themselves stay fully annotated.
+module = "sysml2kit.mcp.*"
+disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -150,7 +161,12 @@ minversion = "8.0"
 testpaths = ["tests", "src/sysml2kit"]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--doctest-modules"]
 xfail_strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+  "error",
+  # The mcp SDK's FastMCP settings model trips this pydantic-settings warning
+  # internally; not ours to fix.
+  "ignore::pydantic_settings.exceptions.IncompleteFieldDefinitionWarning",
+]
 markers = [
   "parse: requires the sysmlpy parse extra",
   "api: requires a live Systems Modeling API server",

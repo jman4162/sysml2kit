@@ -97,9 +97,22 @@ SysML v2 model library consumed through this package.
 
 ## For agents
 
-The CLI (`sysml2kit show | validate | diff | export`) is the current
-automation surface. An MCP server is planned for v0.2 under
-`sysml2kit.mcp`.
+An MCP server ships behind the `mcp` extra with eight tools: `model_show`,
+`model_validate`, `model_diff`, `model_export`, `model_diagram`,
+`requirements_trace`, `requirements_extract`, `library_load`. Artifacts are
+returned as file paths, not payloads.
+
+```bash
+pip install "sysml2kit[mcp,parse]"
+sysml2kit mcp serve            # stdio; --transport http also supported
+```
+
+```json
+{"mcpServers": {"sysml2kit": {"command": "sysml2kit", "args": ["mcp", "serve"]}}}
+```
+
+The CLI (`sysml2kit show | validate | diff | export | fmt`) covers the same
+operations for shell use.
 
 ## Development
 

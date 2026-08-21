@@ -14,6 +14,22 @@ import sysml2kit
 from sysml2kit.model.container import Model
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
+mcp_app = typer.Typer(help="MCP server (needs the mcp extra).")
+app.add_typer(mcp_app, name="mcp")
+
+
+@mcp_app.command()
+def serve(
+    transport: Annotated[
+        str, typer.Option("--transport", help="Transport: stdio or http.")
+    ] = "stdio",
+) -> None:
+    """Run the sysml2kit MCP server."""
+    if transport not in ("stdio", "http"):
+        raise typer.BadParameter("transport must be 'stdio' or 'http'")
+    from sysml2kit.mcp.server import run_server
+
+    run_server(transport="streamable-http" if transport == "http" else "stdio")
 
 
 def _load(path: Path) -> Model:
@@ -165,7 +181,9 @@ def fmt(
 @app.command()
 def export(
     file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
-    to: Annotated[str, typer.Option("--to", help="Output format: json or sysml.")] = "json",
+    to: Annotated[
+        str, typer.Option("--to", help="Output format: json, sysml, or mermaid.")
+    ] = "json",
     output: Annotated[
         Path | None, typer.Option("--output", "-o", help="Output file (default: stdout).")
     ] = None,
@@ -173,8 +191,12 @@ def export(
         bool,
         typer.Option("--stable-ids", help="Rewrite ids as UUIDv5 name hashes before export."),
     ] = False,
+    diagram: Annotated[
+        str,
+        typer.Option("--diagram", help="Mermaid view: trace (default) or tree."),
+    ] = "trace",
 ) -> None:
-    """Convert a model file to interchange JSON or textual notation."""
+    """Convert a model file to interchange JSON, textual notation, or a mermaid diagram."""
     model = _load(file)
     if stable_ids:
         model.assign_stable_ids()
@@ -188,8 +210,17 @@ def export(
         from sysml2kit.text import write_model
 
         text = write_model(model)
+    elif to == "mermaid":
+        from sysml2kit.views import to_mermaid_trace, to_mermaid_tree
+
+        if diagram == "trace":
+            text = to_mermaid_trace(model)
+        elif diagram == "tree":
+            text = to_mermaid_tree(model)
+        else:
+            raise typer.BadParameter("--diagram must be 'trace' or 'tree'")
     else:
-        raise typer.BadParameter("--to must be 'json' or 'sysml'")
+        raise typer.BadParameter("--to must be 'json', 'sysml', or 'mermaid'")
     if output is None:
         typer.echo(text, nl=False)
     else:

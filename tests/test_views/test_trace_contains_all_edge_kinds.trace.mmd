@@ -1,0 +1,9 @@
+flowchart LR
+    Vehicle__battery("battery")
+    Vehicle__Range{{"REQ-001"}}
+    Vehicle__BatteryMass{{"REQ-002"}}
+    Vehicle__RangeAnalysis[/"RangeAnalysis"/]
+    Vehicle__BatteryMass -. derive .-> Vehicle__Range
+    Vehicle__battery -- satisfy --> Vehicle__BatteryMass
+    Vehicle__Range == allocate ==> Vehicle__battery
+    Vehicle__RangeAnalysis -. verify .-> Vehicle__Range
