@@ -34,6 +34,7 @@ nav:
   - Quickstart: quickstart.md
   - Concepts: concepts.md
   - Traceability: traceability.md
+  - Verification: verification.md
   - Interchange: interchange.md
   - Command line: cli.md
   - MCP server: mcp.md

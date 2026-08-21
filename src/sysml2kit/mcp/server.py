@@ -39,7 +39,7 @@ def _get_server() -> Any:
         name="sysml2kit",
         instructions=(
             "Work with SysML v2 models: inspect, validate, diff, export, and "
-            "diagram model files, and extract machine-checkable requirements "
+            "diagram model files, extract machine-checkable requirements, and run bound verification analyses "
             "with their traceability. Inputs are .json interchange files "
             "(always supported) or .sysml text (needs the parse extra). "
             "Artifacts are returned as file paths, not payloads."

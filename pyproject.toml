@@ -52,6 +52,8 @@ parse = ["sysmlpy>=0.36.2,<0.37"]
 graph = ["networkx>=3.2"]
 # mcp 2.0.0 removed mcp.server.fastmcp; stay on 1.x until the surface is ported.
 mcp = ["mcp>=1.26,<2"]
+# YAML verification-binding configs; JSON configs work without it.
+verify = ["pyyaml>=6.0"]
 
 [project.scripts]
 sysml2kit = "sysml2kit.cli:app"
@@ -70,15 +72,17 @@ test = [
   "hypothesis>=6.130",
   "respx>=0.22",
 ]
-lint = ["mypy>=1.15", "ruff>=0.16"]
+lint = ["mypy>=1.15", "ruff>=0.16", "types-PyYAML>=6.0"]
 parse-test = ["sysmlpy>=0.36.2,<0.37"]
 mcp-test = ["mcp>=1.26,<2"]
+verify-test = ["pyyaml>=6.0"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.27"]
 dev = [
   { include-group = "test" },
   { include-group = "lint" },
   { include-group = "parse-test" },
   { include-group = "mcp-test" },
+  { include-group = "verify-test" },
   { include-group = "docs" },
 ]
 

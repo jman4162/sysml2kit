@@ -17,6 +17,7 @@ EXPECTED_TOOLS = {
     "model_diagram",
     "requirements_trace",
     "requirements_extract",
+    "requirements_verify",
     "library_load",
 }
 
@@ -109,3 +110,26 @@ def test_library_load(tmp_path):
     r = asyncio.run(tools_model.library_load(out=str(out)))
     assert r["status"] == "ok"
     assert out.exists()
+
+
+def test_requirements_verify(tmp_path, vehicle):
+    # the vehicle fixture has no bindings, so the run is empty but well-formed
+    report = tmp_path / "run.json"
+    r = asyncio.run(
+        tools_requirements.requirements_verify(
+            write_vehicle(tmp_path, vehicle), report_out=str(report)
+        )
+    )
+    assert r["status"] == "ok"
+    assert r["passed"] is True
+    assert report.exists()
+
+
+def test_requirements_verify_report_traversal_rejected(tmp_path, vehicle):
+    r = asyncio.run(
+        tools_requirements.requirements_verify(
+            write_vehicle(tmp_path, vehicle), report_out="../../evil.json"
+        )
+    )
+    assert r["status"] == "failed"
+    assert "traversal" in r["error"]

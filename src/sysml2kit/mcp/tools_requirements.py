@@ -74,3 +74,60 @@ async def requirements_extract(path: ModelPath) -> dict[str, Any]:
     except Exception as e:
         logger.exception("requirements_extract failed")
         return {"error": str(e), "status": "failed"}
+
+
+@mcp.tool()
+async def requirements_verify(
+    path: ModelPath,
+    report_out: Annotated[
+        str, Field(description="Where to write the VerificationRun JSON report")
+    ] = "verification_run.json",
+    write_back_out: Annotated[
+        str, Field(description="Optional path for the results-annotated model JSON; empty skips")
+    ] = "",
+) -> dict[str, Any]:
+    """Run bound analyses (verificationBinding metadata) and check their requirements."""
+    logger.info("requirements_verify %s", path)
+    try:
+        from datetime import UTC, datetime
+        from pathlib import Path
+
+        from sysml2kit.verify import EngineRegistry, apply_results, run_verification
+        from sysml2kit.workspace import reject_path_traversal
+
+        report_path = reject_path_traversal(report_out)
+        model = _load(path)
+        run = run_verification(
+            model,
+            model_path=Path(path),
+            registry=EngineRegistry.discover(),
+            timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
+        )
+        Path(report_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(report_path).write_text(run.model_dump_json(indent=2) + "\n")
+        result: dict[str, Any] = {
+            "status": "ok",
+            "passed": run.passed,
+            "report": str(report_path),
+            "must_failures": [
+                v.requirement_id
+                for v in run.requirements
+                if v.severity == "must" and v.status != "pass"
+            ],
+            "analysis_errors": [a.analysis for a in run.analyses if a.error],
+        }
+        if write_back_out:
+            import json
+
+            from sysml2kit.interchange import model_to_json
+
+            out_path = reject_path_traversal(write_back_out)
+            apply_results(model, run)
+            Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(out_path).write_text(json.dumps(model_to_json(model), indent=2) + "\n")
+            result["write_back"] = str(out_path)
+        logger.info("requirements_verify: passed=%s", run.passed)
+        return result
+    except Exception as e:
+        logger.exception("requirements_verify failed")
+        return {"error": str(e), "status": "failed"}

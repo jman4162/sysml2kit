@@ -121,6 +121,88 @@ def diff(
 
 
 @app.command()
+def verify(
+    file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    engine: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--engine",
+            help="Extra engine as name=module:function (operator input; repeatable).",
+        ),
+    ] = None,
+    analysis: Annotated[
+        list[str] | None,
+        typer.Option("--analysis", help="Only run these analyses (qualified names; repeatable)."),
+    ] = None,
+    report: Annotated[
+        Path | None, typer.Option("--report", help="Write the VerificationRun JSON here.")
+    ] = None,
+    write_back: Annotated[
+        bool, typer.Option("--write-back", help="Record results into the model (needs -o).")
+    ] = False,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Updated model JSON for --write-back.")
+    ] = None,
+) -> None:
+    """Run bound analyses and check the requirements they verify.
+
+    Exit codes: 0 all must-requirements pass; 1 a must-requirement failed or
+    an engine errored; 2 usage errors.
+    """
+    from datetime import UTC, datetime
+
+    from sysml2kit.verify import EngineRegistry, apply_results, run_verification
+
+    if write_back and output is None:
+        raise typer.BadParameter("--write-back needs -o/--output")
+    registry = EngineRegistry.discover()
+    for item in engine or []:
+        if "=" not in item or ":" not in item.split("=", 1)[1]:
+            raise typer.BadParameter(f"--engine {item!r}: expected name=module:function")
+        name, target = item.split("=", 1)
+        module_name, func_name = target.split(":", 1)
+        import importlib
+
+        registry.register(name, getattr(importlib.import_module(module_name), func_name))
+
+    model = _load(file)
+    run = run_verification(
+        model,
+        model_path=file,
+        registry=registry,
+        timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
+        analyses=analysis,
+    )
+
+    for result in run.analyses:
+        state = f"error: {result.error}" if result.error else f"{len(result.metrics)} metrics"
+        typer.echo(f"analysis {result.analysis} [{result.engine}]: {state}")
+    for v in run.requirements:
+        threshold = f"{v.op} {v.threshold}" if v.op is not None else "(no threshold)"
+        actual = "-" if v.actual is None else f"{v.actual:g}"
+        margin = "-" if v.margin is None else f"{v.margin:+g}"
+        typer.echo(
+            f"{v.status.upper():7s} {v.requirement_id:20s} {v.metric_key:40s} "
+            f"{threshold:12s} actual={actual} margin={margin} [{v.severity}]"
+        )
+    typer.echo(f"passed: {run.passed}")
+
+    if report is not None:
+        report.write_text(run.model_dump_json(indent=2) + "\n")
+        typer.echo(f"wrote {report}")
+    if write_back and output is not None:
+        import json as json_module
+
+        from sysml2kit.interchange import model_to_json
+
+        apply_results(model, run)
+        output.write_text(json_module.dumps(model_to_json(model), indent=2) + "\n")
+        typer.echo(f"wrote {output}")
+    if not run.passed:
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def fmt(
     file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
     output: Annotated[

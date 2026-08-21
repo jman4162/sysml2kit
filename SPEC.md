@@ -77,6 +77,33 @@ test failure.
 - `Model.assign_stable_ids()` rewrites ids as UUIDv5 hashes of qualified
   names so generated interchange files diff cleanly under version control.
 
+## Verification binding convention
+
+A ``MetadataUsage`` named ``verificationBinding`` annotating an
+``AnalysisCaseUsage`` binds that analysis to an executable engine. Values
+(flat scalars, per the metadata model):
+
+| key | type | meaning |
+|---|---|---|
+| ``engine`` | str, required | registry name, e.g. ``"phased-array-systems"`` |
+| ``configRef`` | str, optional | ``.yaml``/``.yml``/``.json`` payload file next to the model file (resolved relative to its directory, containment-checked; no ``..``) |
+| ``payload.<dotted>`` | scalar, optional | override deep-merged over the loaded config; dotted keys expand to nested dicts |
+
+Engines resolve **by name** against a registry populated from the
+``sysml2kit.engines`` entry-point group and explicit caller registration.
+Model text never names importable code paths — models are data. The runner
+does not interpret payload contents; each engine owns its payload schema
+(engines needing a config plus scalar arguments define reserved top-level
+keys such as ``config``/``args``).
+
+Results written back by ``sysml2kit.verify.apply_results`` are attributes on
+the analysis (``source`` starts with ``sysml2kit.verify``) and a
+``verificationVerdict`` metadata on each requirement; both replace prior
+same-named results, so reruns do not accumulate.
+
+Bindings are an interchange-JSON feature: metadata values round-trip through
+JSON, while textual-notation fidelity for metadata is not yet pinned.
+
 ## Provenance on values
 
 `AttributeValue` carries optional `source` and `confidence` fields, following
