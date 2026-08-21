@@ -31,6 +31,21 @@ BINDING_NAME = "verificationBinding"
 _PAYLOAD_PREFIX = "payload."
 
 
+def is_binding(model: Model, element: MetadataUsage) -> bool:
+    """Whether this metadata usage is a verificationBinding.
+
+    Either the usage itself is named ``verificationBinding`` or it is a
+    named usage typed by a ``metadata def verificationBinding`` — the
+    typed form is what lets several sibling bindings (a fidelity ladder)
+    coexist with distinct names.
+    """
+    if element.declared_name == BINDING_NAME:
+        return True
+    if element.definition is not None and element.definition.target in model.elements:
+        return model.resolve(element.definition).declared_name == BINDING_NAME
+    return False
+
+
 class BindingError(ValueError):
     """A verificationBinding metadata is malformed or unresolvable."""
 
@@ -59,7 +74,7 @@ def extract_bindings(model: Model) -> list[VerificationBinding]:
     bindings: list[VerificationBinding] = []
     for element in model.iter_elements(kind=MetadataUsage):
         assert isinstance(element, MetadataUsage)
-        if element.declared_name != BINDING_NAME:
+        if not is_binding(model, element):
             continue
         if element.annotated is None:
             raise BindingError(f"binding {element.element_id} annotates nothing")

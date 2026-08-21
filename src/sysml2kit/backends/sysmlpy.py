@@ -24,7 +24,7 @@ from typing import Any
 from sysml2kit.model.analysis import AnalysisCaseDefinition, AnalysisCaseUsage
 from sysml2kit.model.base import Element, Ref
 from sysml2kit.model.container import Model
-from sysml2kit.model.metadata import MetadataUsage
+from sysml2kit.model.metadata import MetadataDefinition, MetadataUsage
 from sysml2kit.model.relations import (
     AllocateRelationship,
     DeriveRelationship,
@@ -67,6 +67,7 @@ _NODE_MAP: dict[str, type[Element]] = {
     "AnalysisCaseDefinition": AnalysisCaseDefinition,
     "AnalysisCaseUsage": AnalysisCaseUsage,
     "ConnectionUsage": ConnectionUsage,
+    "MetadataDefinition": MetadataDefinition,
 }
 
 #: Keys never descended when extracting declaration-level facts.
@@ -431,6 +432,14 @@ class SysmlpyBackend:
             )
             metadata_element = MetadataUsage(declared_name=name, values=values)
             model.add(metadata_element, owner=owner)
+            # A named-and-typed usage (``metadata x : verificationBinding``)
+            # keeps its typing as a definition ref; when the name itself came
+            # from the typing slot there is nothing separate to resolve.
+            ident = node.get("identification")
+            if isinstance(ident, dict) and ident.get("declaredName"):
+                typing = _first(node.get("ownedFeatureTyping"), "QualifiedName")
+                if typing and typing.get("names"):
+                    state.typings.append((metadata_element, list(typing["names"])))
             if annotated:
                 state.annotations.append((metadata_element, annotated))
             return

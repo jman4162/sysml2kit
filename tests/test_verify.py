@@ -258,7 +258,8 @@ def test_fidelity_ladder_escalate_policy():
     run = run_verification(model, registry=registry, policy="escalate", budget_s=10.0)
     assert calls == ["cheap", "costly"]  # thin margin (401 vs 400) escalated
     escalated = [v for v in run.requirements if v.escalated_from]
-    assert escalated and escalated[0].escalated_from == "analytic"
+    assert escalated
+    assert escalated[0].escalated_from == "analytic"
     assert escalated[0].fidelity == "pattern"
     assert set(run.seconds_by_fidelity) == {"analytic", "pattern"}
     assert run.passed

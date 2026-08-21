@@ -10,7 +10,7 @@ from __future__ import annotations
 from sysml2kit.model.analysis import AnalysisCaseDefinition, AnalysisCaseUsage
 from sysml2kit.model.base import Element, Ref
 from sysml2kit.model.container import Model
-from sysml2kit.model.metadata import MetadataUsage
+from sysml2kit.model.metadata import MetadataDefinition, MetadataUsage
 from sysml2kit.model.relations import (
     AllocateRelationship,
     DeriveRelationship,
@@ -193,17 +193,38 @@ def metadata(
     *,
     owner: Element | None = None,
     name: str | None = None,
+    definition: Element | None = None,
 ) -> MetadataUsage:
     """Attach a key-value metadata annotation to an element.
 
     Default ownership is the annotated element's owner (package level): the
     ``about`` reference carries the attachment, and package-level placement
     is what survives the textual notation (metadata inside definition bodies
-    is dropped by the parser).
+    is dropped by the parser). Passing ``definition`` types the usage by a
+    ``metadata def``, which lets sibling annotations carry distinct names
+    (a fidelity ladder) while sharing one annotation kind.
     """
-    usage = MetadataUsage(declared_name=name, annotated=Ref.to(annotated), values=dict(values))
+    usage = MetadataUsage(
+        declared_name=name,
+        annotated=Ref.to(annotated),
+        values=dict(values),
+        definition=Ref.to(definition) if definition is not None else None,
+    )
     default_owner = model.owner_of(annotated) or annotated
     return model.add(usage, owner=owner if owner is not None else default_owner)  # type: ignore[return-value]
+
+
+def metadata_def(
+    model: Model,
+    name: str,
+    *,
+    owner: Element | None = None,
+    doc: str | None = None,
+) -> MetadataDefinition:
+    """Add a reusable metadata annotation kind (``metadata def``)."""
+    return model.add(  # type: ignore[return-value]
+        MetadataDefinition(declared_name=name, doc=doc), owner=owner
+    )
 
 
 def _relate(

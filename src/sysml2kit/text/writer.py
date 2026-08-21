@@ -186,6 +186,8 @@ def _render_attribute(model: Model, element: AttributeUsage, indent: str) -> str
 def _render_metadata(model: Model, element: MetadataUsage, indent: str) -> str:
     about = f" about {_name_of(model, element.annotated)}" if element.annotated else ""
     name = f" {escape_name(element.declared_name)}" if element.declared_name else ""
+    if element.definition is not None:
+        name += f" : {_name_of(model, element.definition)}"
     if not element.values:
         return f"{indent}metadata{name}{about};"
     inner = indent + _INDENT

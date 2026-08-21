@@ -100,4 +100,5 @@ def test_s2k010_mixed_labeling_warns(vehicle: Model):
     )
     builder.metadata(vehicle, analysis, {"engine": "b"}, name="verificationBinding")
     issues = [i for i in validate(vehicle) if i.rule_id == "S2K010"]
-    assert issues and issues[0].severity == "warning"
+    assert issues
+    assert issues[0].severity == "warning"

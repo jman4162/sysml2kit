@@ -193,7 +193,9 @@ def fidelity_ladder_shape(model: Model) -> Iterator[ValidationIssue]:
     per_analysis: dict[UUID, list[str | None]] = {}
     for el in model.iter_elements(kind=MetadataUsage):
         assert isinstance(el, MetadataUsage)
-        if el.declared_name != "verificationBinding" or el.annotated is None:
+        from sysml2kit.verify.binding import is_binding
+
+        if not is_binding(model, el) or el.annotated is None:
             continue
         label = el.values.get("fidelity")
         per_analysis.setdefault(el.annotated.target, []).append(

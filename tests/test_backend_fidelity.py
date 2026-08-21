@@ -22,6 +22,7 @@ from sysml2kit.model import (
     builder,
 )
 from sysml2kit.text import write_model
+from sysml2kit.verify.binding import extract_bindings
 
 pytestmark = pytest.mark.parse
 
@@ -246,3 +247,40 @@ def test_full_traceability_round_trip():
     (binding,) = extract_bindings(reparsed)
     assert binding.engine == "fake"
     assert binding.config_ref == "c.json"
+
+
+def test_typed_binding_ladder_round_trip():
+    """Named usages typed by 'metadata def verificationBinding' survive text."""
+    model = Model()
+    pkg = builder.pkg(model, "Ladder")
+    binding_def = builder.metadata_def(model, "verificationBinding", owner=pkg)
+    analysis = builder.analysis(model, "study", owner=pkg)
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "a", "fidelity": "analytic", "costSeconds": 0.001},
+        name="analyticBinding",
+        definition=binding_def,
+    )
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "b", "fidelity": "pattern", "costSeconds": 1.0},
+        name="patternBinding",
+        definition=binding_def,
+    )
+    model.assign_stable_ids()  # distinct names: no sibling clash
+
+    reparsed = backend.parse(write_model(model))
+    bindings = {b.fidelity: b for b in extract_bindings(reparsed)}
+    assert set(bindings) == {"analytic", "pattern"}
+    assert bindings["analytic"].engine == "a"
+    assert bindings["pattern"].cost_s == 1.0
+
+
+def test_plain_named_metadata_is_not_a_binding():
+    model = Model()
+    pkg = builder.pkg(model, "P")
+    analysis = builder.analysis(model, "study", owner=pkg)
+    builder.metadata(model, analysis, {"engine": "a"}, name="somethingElse")
+    assert extract_bindings(model) == []
