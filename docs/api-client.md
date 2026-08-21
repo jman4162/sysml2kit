@@ -10,7 +10,7 @@ from sysml2kit.api import SysMLApiClient
 with SysMLApiClient("https://models.example.com", token="…") as client:
     for project in client.list_projects():
         print(project.id, project.name)
-    model = client.list_elements(project_id, commit_id)   # -> sysml2kit Model
+    model = client.list_elements(project_id, commit_id)  # -> sysml2kit Model
     client.push_model(project_id, model, message="update")
 ```
 

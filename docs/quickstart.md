@@ -13,18 +13,21 @@ model = Model()
 pkg = builder.pkg(model, "Vehicle")
 battery = builder.part(model, "battery", owner=pkg)
 range_req = builder.req(
-    model, "REQ-001", "Range", owner=pkg,
+    model,
+    "REQ-001",
+    "Range",
+    owner=pkg,
     text="The vehicle shall travel at least 400 km on one charge.",
 )
 builder.satisfy(model, source=battery, target=range_req)
 
-print(unverified_requirements(model))   # [REQ-001] - nothing verifies it yet
-print(trace_matrix(model).render())     # requirement-by-part grid
+print(unverified_requirements(model))  # [REQ-001] - nothing verifies it yet
+print(trace_matrix(model).render())  # requirement-by-part grid
 for issue in validate(model):
     print(issue.rule_id, issue.severity, issue.message)
 
-print(write_model(model))               # SysML v2 textual notation
-write_json(model, "vehicle.json")       # Systems Modeling API interchange
+print(write_model(model))  # SysML v2 textual notation
+write_json(model, "vehicle.json")  # Systems Modeling API interchange
 ```
 
 The same operations from the command line:
