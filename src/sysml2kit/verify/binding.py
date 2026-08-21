@@ -43,6 +43,15 @@ class VerificationBinding(BaseModel):
     engine: str
     config_ref: str | None = None
     overrides: dict[str, float | int | str | bool] = {}
+    #: Rung label from the reserved ``fidelity`` metadata key.
+    fidelity: str | None = None
+    #: Declared wall-clock estimate from the reserved ``costSeconds`` key.
+    cost_s: float | None = None
+
+    @property
+    def key(self) -> str:
+        """Stable identity for one rung of one analysis."""
+        return f"{self.analysis}#{self.fidelity or self.engine}"
 
 
 def extract_bindings(model: Model) -> list[VerificationBinding]:
@@ -67,6 +76,8 @@ def extract_bindings(model: Model) -> list[VerificationBinding]:
         if not isinstance(engine, str) or not engine:
             raise BindingError(f"binding on '{model.qualified_name(analysis)}' names no engine")
         config_ref = element.values.get("configRef")
+        fidelity = element.values.get("fidelity")
+        cost = element.values.get("costSeconds")
         overrides = {
             key[len(_PAYLOAD_PREFIX) :]: value
             for key, value in element.values.items()
@@ -79,6 +90,8 @@ def extract_bindings(model: Model) -> list[VerificationBinding]:
                 engine=engine,
                 config_ref=str(config_ref) if config_ref is not None else None,
                 overrides=overrides,
+                fidelity=str(fidelity) if fidelity is not None else None,
+                cost_s=float(cost) if isinstance(cost, int | float) else None,
             )
         )
     return bindings

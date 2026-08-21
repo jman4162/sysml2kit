@@ -100,6 +100,8 @@ A ``MetadataUsage`` named ``verificationBinding`` annotating an
 | ``engine`` | str, required | registry name, e.g. ``"phased-array-systems"`` |
 | ``configRef`` | str, optional | ``.yaml``/``.yml``/``.json`` payload file next to the model file (resolved relative to its directory, containment-checked; no ``..``) |
 | ``payload.<dotted>`` | scalar, optional | override deep-merged over the loaded config; dotted keys expand to nested dicts |
+| ``fidelity`` | str, optional | rung label; sibling bindings on one analysis form a fidelity ladder (labels must be distinct, rule S2K010) |
+| ``costSeconds`` | number, optional | declared wall-clock estimate; orders the ladder and gates the escalate policy's budget |
 
 Engines resolve **by name** against a registry populated from the
 ``sysml2kit.engines`` entry-point group and explicit caller registration.

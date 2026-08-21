@@ -14,6 +14,7 @@ from uuid import UUID
 
 from sysml2kit.model.base import Element, OpaqueElement, Relationship
 from sysml2kit.model.container import Model
+from sysml2kit.model.metadata import MetadataUsage
 from sysml2kit.model.relations import (
     AllocateRelationship,
     DeriveRelationship,
@@ -184,3 +185,36 @@ def opaque_share(model: Model) -> Iterator[ValidationIssue]:
         yield ValidationIssue(
             "S2K009", "info", None, f"{opaque} element(s) outside the pragmatic profile"
         )
+
+
+@rule("S2K010")
+def fidelity_ladder_shape(model: Model) -> Iterator[ValidationIssue]:
+    """error: two bindings on one analysis share a fidelity label; warning: mixed labeling."""
+    per_analysis: dict[UUID, list[str | None]] = {}
+    for el in model.iter_elements(kind=MetadataUsage):
+        assert isinstance(el, MetadataUsage)
+        if el.declared_name != "verificationBinding" or el.annotated is None:
+            continue
+        label = el.values.get("fidelity")
+        per_analysis.setdefault(el.annotated.target, []).append(
+            str(label) if label is not None else None
+        )
+    for analysis_id, labels in per_analysis.items():
+        if len(labels) < 2:
+            continue
+        named = [label for label in labels if label is not None]
+        duplicates = {label for label in named if named.count(label) > 1}
+        if duplicates:
+            yield ValidationIssue(
+                "S2K010",
+                "error",
+                analysis_id,
+                f"multiple bindings share fidelity label(s) {sorted(duplicates)}",
+            )
+        if named and len(named) != len(labels):
+            yield ValidationIssue(
+                "S2K010",
+                "warning",
+                analysis_id,
+                "some sibling bindings declare a fidelity label and some do not",
+            )

@@ -79,4 +79,25 @@ def test_errors_sort_first(vehicle: Model):
 
 
 def test_rule_registry_is_complete():
-    assert set(RULES) == {f"S2K00{n}" for n in range(1, 10)}
+    assert set(RULES) == {f"S2K00{n}" for n in range(1, 10)} | {"S2K010"}
+
+
+def test_s2k010_duplicate_fidelity_labels(vehicle: Model):
+    analysis = vehicle.find(name="RangeAnalysis")[0]
+    builder.metadata(
+        vehicle, analysis, {"engine": "a", "fidelity": "x"}, name="verificationBinding"
+    )
+    builder.metadata(
+        vehicle, analysis, {"engine": "b", "fidelity": "x"}, name="verificationBinding"
+    )
+    assert "S2K010" in ids(validate(vehicle))
+
+
+def test_s2k010_mixed_labeling_warns(vehicle: Model):
+    analysis = vehicle.find(name="RangeAnalysis")[0]
+    builder.metadata(
+        vehicle, analysis, {"engine": "a", "fidelity": "x"}, name="verificationBinding"
+    )
+    builder.metadata(vehicle, analysis, {"engine": "b"}, name="verificationBinding")
+    issues = [i for i in validate(vehicle) if i.rule_id == "S2K010"]
+    assert issues and issues[0].severity == "warning"

@@ -118,3 +118,112 @@ def test_verify_bad_engine_arg(tmp_path):
     path = bound_model_file(tmp_path)
     result = runner.invoke(app, ["verify", str(path), "--engine", "no-equals-sign"])
     assert result.exit_code == 2
+
+
+ENGINE_LADDER_MODULE = """
+def cheap_engine(payload):
+    return {"range_km": 405.0}
+
+
+def costly_engine(payload):
+    return {"range_km": 420.0}
+"""
+
+
+def ladder_model_file(tmp_path):
+    model = Model()
+    pkg = builder.pkg(model, "Vehicle")
+    battery = builder.part(model, "battery", owner=pkg)
+    req = builder.req(model, "REQ-001", "Range", owner=pkg, subject=battery)
+    builder.attr(model, "metricKey", "range_km", owner=req)
+    builder.attr(model, "threshold", 400.0, owner=req, unit="km")
+    builder.attr(model, "op", ">=", owner=req)
+    analysis = builder.analysis(model, "RangeAnalysis", owner=pkg, subject=battery)
+    builder.verify(model, source=analysis, target=req, owner=pkg)
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "cheap", "fidelity": "analytic", "costSeconds": 0.001},
+        name="verificationBinding",
+    )
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "costly", "fidelity": "pattern", "costSeconds": 0.01},
+        name="verificationBinding",
+    )
+    path = tmp_path / "model.json"
+    path.write_text(json.dumps(model_to_json(model)))
+    return path
+
+
+def ladder_engine_args(tmp_path, monkeypatch):
+    (tmp_path / "ladder_engine_mod.py").write_text(ENGINE_LADDER_MODULE)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    return [
+        "--engine",
+        "cheap=ladder_engine_mod:cheap_engine",
+        "--engine",
+        "costly=ladder_engine_mod:costly_engine",
+    ]
+
+
+def test_verify_policy_all_shows_rungs(tmp_path, monkeypatch):
+    path = ladder_model_file(tmp_path)
+    result = runner.invoke(app, ["verify", str(path), *ladder_engine_args(tmp_path, monkeypatch)])
+    assert result.exit_code == 0, result.output
+    assert "@analytic" in result.output
+    assert "@pattern" in result.output
+    assert "seconds by fidelity:" in result.output
+
+
+def test_verify_policy_cheapest_runs_one_rung(tmp_path, monkeypatch):
+    path = ladder_model_file(tmp_path)
+    result = runner.invoke(
+        app,
+        ["verify", str(path), *ladder_engine_args(tmp_path, monkeypatch), "--policy", "cheapest"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "@analytic" in result.output
+    assert "@pattern" not in result.output
+
+
+def test_verify_policy_escalate_with_budget(tmp_path, monkeypatch):
+    path = ladder_model_file(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "verify",
+            str(path),
+            *ladder_engine_args(tmp_path, monkeypatch),
+            "--policy",
+            "escalate",
+            "--budget-s",
+            "10",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "(from analytic)" in result.output
+
+
+def test_verify_fidelity_filter(tmp_path, monkeypatch):
+    path = ladder_model_file(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "verify",
+            str(path),
+            *ladder_engine_args(tmp_path, monkeypatch),
+            "--fidelity",
+            "pattern",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "@pattern" in result.output
+    assert "@analytic" not in result.output
+
+
+def test_verify_bad_policy_rejected(tmp_path):
+    path = bound_model_file(tmp_path)
+    result = runner.invoke(app, ["verify", str(path), "--policy", "fastest"])
+    assert result.exit_code == 2

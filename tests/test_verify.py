@@ -216,24 +216,140 @@ def test_write_back_provenance_and_idempotency():
     )
 
 
-def test_multiple_bindings_first_wins_consistently(caplog):
-    """Hotfix regression: checking and write-back provenance must agree."""
+def test_multiple_bindings_all_policy_checks_every_rung():
+    """v0.4: every rung yields a verdict; spread is the cross-rung error bar."""
     model = bound_model()
     analysis = model.find(name="RangeAnalysis")[0]
     builder.metadata(model, analysis, {"engine": "second"}, name="verificationBinding")
     registry = EngineRegistry()
     registry.register("fake", lambda p: {"range_km": 420.0})
-    registry.register("second", lambda p: {"range_km": 1.0})  # would fail the check
-    import logging
+    registry.register("second", lambda p: {"range_km": 430.0})
+    run = run_verification(model, registry=registry)
+    assert len(run.analyses) == 2
+    assert len(run.requirements) == 2
+    assert all(v.status == "pass" for v in run.requirements)
+    assert all(v.spread == pytest.approx(10.0) for v in run.requirements)
+    assert run.passed
 
-    with caplog.at_level(logging.WARNING):
-        run = run_verification(model, registry=registry)
-    assert len(run.analyses) == 2  # both executed
-    (verdict,) = run.requirements
-    assert verdict.status == "pass"  # checked against the FIRST binding (fake)
-    assert "multiple bindings" in caplog.text
+
+def test_fidelity_ladder_escalate_policy():
+    model = bound_model()
+    analysis = model.find(name="RangeAnalysis")[0]
+    # bound_model's binding has no fidelity; rebuild bindings explicitly
+    for el in list(model.owned_by(model.find(name="Vehicle")[0])):
+        if getattr(el, "declared_name", None) == "verificationBinding":
+            model.remove(el)
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "cheap", "fidelity": "analytic", "costSeconds": 0.001},
+        name="verificationBinding",
+    )
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "costly", "fidelity": "pattern", "costSeconds": 1.0},
+        name="verificationBinding",
+    )
+    calls = []
+    registry = EngineRegistry()
+    registry.register("cheap", lambda p: calls.append("cheap") or {"range_km": 401.0})
+    registry.register("costly", lambda p: calls.append("costly") or {"range_km": 405.0})
+    run = run_verification(model, registry=registry, policy="escalate", budget_s=10.0)
+    assert calls == ["cheap", "costly"]  # thin margin (401 vs 400) escalated
+    escalated = [v for v in run.requirements if v.escalated_from]
+    assert escalated and escalated[0].escalated_from == "analytic"
+    assert escalated[0].fidelity == "pattern"
+    assert set(run.seconds_by_fidelity) == {"analytic", "pattern"}
+    assert run.passed
+
+
+def test_escalate_respects_budget():
+    model = bound_model()
+    analysis = model.find(name="RangeAnalysis")[0]
+    for el in list(model.owned_by(model.find(name="Vehicle")[0])):
+        if getattr(el, "declared_name", None) == "verificationBinding":
+            model.remove(el)
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "cheap", "fidelity": "analytic", "costSeconds": 0.001},
+        name="verificationBinding",
+    )
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "costly", "fidelity": "pattern", "costSeconds": 100.0},
+        name="verificationBinding",
+    )
+    calls = []
+    registry = EngineRegistry()
+    registry.register("cheap", lambda p: calls.append("cheap") or {"range_km": 401.0})
+    registry.register("costly", lambda p: calls.append("costly") or {"range_km": 405.0})
+    run = run_verification(model, registry=registry, policy="escalate", budget_s=1.0)
+    assert calls == ["cheap"]  # declared cost 100s exceeds the 1s budget
+    assert not any(v.escalated_from for v in run.requirements)
+
+
+def test_cheapest_policy_runs_one_rung():
+    model = bound_model()
+    analysis = model.find(name="RangeAnalysis")[0]
+    for el in list(model.owned_by(model.find(name="Vehicle")[0])):
+        if getattr(el, "declared_name", None) == "verificationBinding":
+            model.remove(el)
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "cheap", "fidelity": "analytic", "costSeconds": 0.001},
+        name="verificationBinding",
+    )
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "costly", "fidelity": "pattern", "costSeconds": 1.0},
+        name="verificationBinding",
+    )
+    calls = []
+    registry = EngineRegistry()
+    registry.register("cheap", lambda p: calls.append("cheap") or {"range_km": 420.0})
+    registry.register("costly", lambda p: calls.append("costly") or {"range_km": 425.0})
+    run = run_verification(model, registry=registry, policy="cheapest")
+    assert calls == ["cheap"]
+    assert run.passed
+
+
+def test_apply_results_uses_highest_fidelity():
+    model = bound_model()
+    analysis = model.find(name="RangeAnalysis")[0]
+    for el in list(model.owned_by(model.find(name="Vehicle")[0])):
+        if getattr(el, "declared_name", None) == "verificationBinding":
+            model.remove(el)
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "cheap", "fidelity": "analytic", "costSeconds": 0.001},
+        name="verificationBinding",
+    )
+    builder.metadata(
+        model,
+        analysis,
+        {"engine": "costly", "fidelity": "pattern", "costSeconds": 1.0},
+        name="verificationBinding",
+    )
+    registry = EngineRegistry()
+    registry.register("cheap", lambda p: {"range_km": 401.0})
+
+    def slow(p):
+        import time
+
+        time.sleep(0.01)
+        return {"range_km": 405.0}
+
+    registry.register("costly", slow)
+    run = run_verification(model, registry=registry, policy="all", timestamp="T")
     apply_results(model, run)
     written = next(
         el for el in model.owned_by(analysis) if getattr(el, "declared_name", "") == "range_km"
     )
-    assert "fake==" in written.value.source  # provenance names the checked engine
+    assert written.value.value == 405.0  # the higher-cost rung's number
+    assert "fidelity=pattern" in written.value.source

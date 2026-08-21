@@ -70,8 +70,57 @@ a provenance `source` (`sysml2kit.verify <engine>==<version> <timestamp>`)
 and a `verificationVerdict` metadata on each requirement, replacing prior
 results so reruns do not accumulate.
 
+## Fidelity ladders and allocation
+
+An analysis may carry several bindings at different fidelities. Two more
+reserved metadata keys describe the ladder: `fidelity` (a rung label such
+as `analytic` or `pattern`) and `costSeconds` (the declared wall-clock
+estimate that orders the rungs):
+
+```python
+builder.metadata(
+    model,
+    analysis,
+    {
+        "engine": "phased-array-systems",
+        "configRef": "study.yaml",
+        "fidelity": "analytic",
+        "costSeconds": 0.001,
+    },
+    name="verificationBinding",
+)
+builder.metadata(
+    model,
+    analysis,
+    {
+        "engine": "phased-array-systems-pattern",
+        "configRef": "study.yaml",
+        "fidelity": "pattern",
+        "costSeconds": 1.0,
+    },
+    name="verificationBinding",
+)
+```
+
+The runner's `policy` decides which rungs execute. `all` (default) runs
+every rung and reports a verdict per rung, with the cross-rung `spread` as
+an honest error bar. `cheapest` runs only the lowest-cost rung per
+analysis. `escalate` runs the cheapest rungs, ranks must-requirements by
+margin thinness (`|margin| / |threshold|`), and spends the remaining
+`budget_s` escalating the thinnest to the next rung; those verdicts carry
+`escalated_from`. Every run records `seconds_by_fidelity`, so allocation
+claims are auditable.
+
+```bash
+sysml2kit verify model.json --policy escalate --budget-s 5 --report run.json
+```
+
+Validation rule S2K010 rejects two bindings on one analysis that share a
+fidelity label and warns when only some sibling bindings declare one.
+
 Over MCP, the `requirements_verify` tool runs the same flow with
-entry-point engines only, returning `passed`, must-failures, and the report
+entry-point engines only (plus `policy` and `budget_s` parameters),
+returning `passed`, must-failures, `seconds_by_fidelity`, and the report
 path.
 
 ## End to end with the RF library

@@ -85,6 +85,10 @@ async def requirements_verify(
     write_back_out: Annotated[
         str, Field(description="Optional path for the results-annotated model JSON; empty skips")
     ] = "",
+    policy: Annotated[str, Field(description="Rung selection: all, cheapest, or escalate")] = "all",
+    budget_s: Annotated[
+        float, Field(description="Wall-clock budget for escalate, in seconds; 0 = unlimited")
+    ] = 0.0,
 ) -> dict[str, Any]:
     """Run bound analyses (verificationBinding metadata) and check their requirements."""
     logger.info("requirements_verify %s", path)
@@ -97,11 +101,15 @@ async def requirements_verify(
 
         report_path = reject_path_traversal(report_out)
         model = _load(path)
+        if policy not in ("all", "cheapest", "escalate"):
+            raise ValueError("policy must be all, cheapest, or escalate")
         run = run_verification(
             model,
             model_path=Path(path),
             registry=EngineRegistry.discover(),
             timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
+            policy=policy,  # type: ignore[arg-type]
+            budget_s=budget_s or None,
         )
         Path(report_path).parent.mkdir(parents=True, exist_ok=True)
         Path(report_path).write_text(run.model_dump_json(indent=2) + "\n")
@@ -115,6 +123,7 @@ async def requirements_verify(
                 if v.severity == "must" and v.status != "pass"
             ],
             "analysis_errors": [a.analysis for a in run.analyses if a.error],
+            "seconds_by_fidelity": run.seconds_by_fidelity,
         }
         if write_back_out:
             import json

@@ -224,6 +224,18 @@ def verify(
     report: Annotated[
         Path | None, typer.Option("--report", help="Write the VerificationRun JSON here.")
     ] = None,
+    policy: Annotated[
+        str,
+        typer.Option("--policy", help="Rung selection: all, cheapest, or escalate."),
+    ] = "all",
+    budget_s: Annotated[
+        float | None,
+        typer.Option("--budget-s", help="Wall-clock budget for the escalate policy (seconds)."),
+    ] = None,
+    fidelity: Annotated[
+        list[str] | None,
+        typer.Option("--fidelity", help="Only run these rung labels (repeatable)."),
+    ] = None,
     write_back: Annotated[
         bool, typer.Option("--write-back", help="Record results into the model (needs -o).")
     ] = False,
@@ -252,6 +264,8 @@ def verify(
 
         registry.register(name, getattr(importlib.import_module(module_name), func_name))
 
+    if policy not in ("all", "cheapest", "escalate"):
+        raise typer.BadParameter("--policy must be all, cheapest, or escalate")
     model = _load(file)
     run = run_verification(
         model,
@@ -259,6 +273,9 @@ def verify(
         registry=registry,
         timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
         analyses=analysis,
+        policy=policy,  # type: ignore[arg-type]
+        budget_s=budget_s,
+        fidelities=fidelity,
     )
 
     for result in run.analyses:
@@ -268,10 +285,16 @@ def verify(
         threshold = f"{v.op} {v.threshold}" if v.op is not None else "(no threshold)"
         actual = "-" if v.actual is None else f"{v.actual:g}"
         margin = "-" if v.margin is None else f"{v.margin:+g}"
+        rung = v.fidelity or v.engine or "-"
+        escalation = f" (from {v.escalated_from})" if v.escalated_from else ""
         typer.echo(
             f"{v.status.upper():7s} {v.requirement_id:20s} {v.metric_key:40s} "
-            f"{threshold:12s} actual={actual} margin={margin} [{v.severity}]"
+            f"{threshold:12s} actual={actual} margin={margin} "
+            f"[{v.severity}] @{rung}{escalation}"
         )
+    if run.seconds_by_fidelity:
+        spent = ", ".join(f"{k}={v:.3g}s" for k, v in run.seconds_by_fidelity.items())
+        typer.echo(f"seconds by fidelity: {spent}")
     typer.echo(f"passed: {run.passed}")
 
     if report is not None:
