@@ -21,12 +21,13 @@ for spec in extract_requirements(model):
 It ships four library packages (RFVocabulary quantity kinds with units,
 RFParts part/port definitions, RFRequirements requirement definitions using
 the metricKey convention, RFAnalyses analysis case definitions) plus
-**SatcomTerminal28GHz** — a worked example mirroring the aedl `t3-001`
-benchmark: a 28 GHz LEO uplink phased-array terminal with eight
-machine-checkable requirements (worst-case link margin, sidelobe level,
-independent link crosscheck, clear-sky and gain agreement, prime-power and
-unit-cost ceilings, grating-lobe margin), each satisfied by a part and
-verified by an analysis.
+two worked examples. **SatcomTerminal28GHz** mirrors the aedl `t3-001`
+benchmark: eight machine-checkable requirements, each satisfied by a part
+and verified by an analysis. **SatcomTerminalPAS** is executable: its
+`pasStudy` analysis carries a `verificationBinding` for the
+`phased-array-systems` engine, so `sysml2kit verify` runs a real study and
+all five requirements pass with margin (see
+[verification](verification.md)).
 
 The library demonstrates the intended division of labor: domain vocabulary
 as SysML v2 model content, generic mechanics in the kit, physics engines
