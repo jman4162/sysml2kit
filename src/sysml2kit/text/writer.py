@@ -175,5 +175,14 @@ def _render_metadata(model: Model, element: MetadataUsage, indent: str) -> str:
     if not element.values:
         return f"{indent}metadata{name}{about};"
     inner = indent + _INDENT
-    lines = [f"{inner}{escape_name(k)} = {v!r};" for k, v in element.values.items()]
+    lines = [f"{inner}{escape_name(k)} = {_metadata_value(v)};" for k, v in element.values.items()]
     return f"{indent}metadata{name}{about} {{\n" + "\n".join(lines) + f"\n{indent}}}"
+
+
+def _metadata_value(value: str | float | bool) -> str:
+    """Render a metadata value in SysML syntax, not Python repr."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return '"' + value.replace('"', '\\"') + '"'
+    return str(value)

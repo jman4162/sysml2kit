@@ -97,3 +97,27 @@ def test_fmt_rejects_json(tmp_path):
     f.write_text("[]")
     result = runner.invoke(app, ["fmt", str(f)])
     assert result.exit_code != 0
+
+
+BINDING_BEARING = """package P {
+    part b;
+    requirement <'R1'> A;
+    analysis ana;
+    dependency from ana to A; // verify
+    metadata verificationBinding about ana {
+        engine = "fake";
+    }
+}
+"""
+
+
+def test_fmt_refuses_binding_bearing_file(tmp_path):
+    """Regression: before 0.3.1 fmt silently deleted bindings and verify links."""
+    f = tmp_path / "m.sysml"
+    f.write_text(BINDING_BEARING)
+    result = runner.invoke(app, ["fmt", str(f)])
+    assert result.exit_code == 1
+    assert "refusing" in result.output
+    assert "dependency" in result.output
+    assert "metadata" in result.output
+    assert f.read_text() == BINDING_BEARING  # untouched

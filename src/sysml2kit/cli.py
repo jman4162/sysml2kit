@@ -326,6 +326,15 @@ def fmt(
     for kind in sorted(set(before) | set(after)):
         if before.get(kind, 0) != after.get(kind, 0):
             losses.append(f"{kind}: {before.get(kind, 0)} -> {after.get(kind, 0)}")
+    # Dependency statements leave no node in the grammar signature at all, so
+    # a textual keyword count is the only guard that can see them.
+    import re as _re
+
+    for keyword in ("dependency", "metadata", "satisfy", "allocate"):
+        n_before = len(_re.findall(rf"\b{keyword}\b", source))
+        n_after = len(_re.findall(rf"\b{keyword}\b", formatted))
+        if n_before != n_after:
+            losses.append(f"'{keyword}' statements: {n_before} -> {n_after}")
     entries = diff_models(model, backend.parse(formatted), by_name=True)
     if entries:
         losses.append(render_diff(entries))

@@ -50,8 +50,7 @@ never edit `_version.py` or add a version literal.
 - `interop/` — `RequirementSpec` extraction; the `metricKey` attribute
   convention bridges to phased-array-systems and aedl (adapters live in those
   repos, not here).
-- `cli.py` — typer app. MCP is deferred to v0.2; when added it goes in
-  `src/sysml2kit/mcp/` following apab's `docs/mcp-conventions.md`.
+- `cli.py` — typer app; `mcp/` follows apab's `docs/mcp-conventions.md`.
 
 ## Constraints
 

@@ -257,7 +257,20 @@ def _import_texts(node: dict[str, Any]) -> list[str]:
 
 #: Grammar node names counted by :func:`grammar_signature`; infrastructure
 #: wrappers whose names merely end in Usage are excluded.
-_SIGNATURE_EXTRA = frozenset({"Package", "Documentation", "NamespaceImport", "MembershipImport"})
+_SIGNATURE_EXTRA = frozenset(
+    {
+        "Package",
+        "Documentation",
+        "NamespaceImport",
+        "MembershipImport",
+        # Metadata and annotation nodes carry verification bindings; missing
+        # them let fmt silently delete bindings before 0.3.1.
+        "MetadataFeature",
+        "MetadataDefinition",
+        "AnnotatingElement",
+        "Dependency",
+    }
+)
 _SIGNATURE_EXCLUDE = frozenset({"Usage", "SubjectUsage"})
 
 

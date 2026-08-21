@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.1 — 2026-08-21
+
+Hotfix release; upgrade recommended.
+
+- **`fmt` could silently delete verification bindings and verify links.**
+  The loss gate's grammar signature missed MetadataFeature nodes, and
+  dependency statements leave no grammar node at all, so a format pass on a
+  binding-bearing file removed both without triggering the refusal. The
+  signature now covers metadata/annotation/dependency nodes and a textual
+  keyword guard catches statements the parser drops entirely; `fmt` on such
+  files now refuses unless `--lossy` is passed.
+- Metadata values in textual output were rendered with Python repr
+  (single-quoted strings, `True`/`False`); they now render as SysML text
+  (double-quoted strings, `true`/`false`).
+- With multiple verificationBinding annotations on one analysis, requirement
+  checking used the last binding while write-back provenance named the
+  first. Both now use the first binding, extra bindings execute with a
+  logged warning, and full multi-binding support is planned.
+
 ## 0.3.0 — 2026-08-21
 
 - **Verification execution** (`sysml2kit.verify`): `verificationBinding`

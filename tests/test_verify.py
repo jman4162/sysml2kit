@@ -214,3 +214,26 @@ def test_write_back_provenance_and_idempotency():
         )
         == 1
     )
+
+
+def test_multiple_bindings_first_wins_consistently(caplog):
+    """Hotfix regression: checking and write-back provenance must agree."""
+    model = bound_model()
+    analysis = model.find(name="RangeAnalysis")[0]
+    builder.metadata(model, analysis, {"engine": "second"}, name="verificationBinding")
+    registry = EngineRegistry()
+    registry.register("fake", lambda p: {"range_km": 420.0})
+    registry.register("second", lambda p: {"range_km": 1.0})  # would fail the check
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        run = run_verification(model, registry=registry)
+    assert len(run.analyses) == 2  # both executed
+    (verdict,) = run.requirements
+    assert verdict.status == "pass"  # checked against the FIRST binding (fake)
+    assert "multiple bindings" in caplog.text
+    apply_results(model, run)
+    written = next(
+        el for el in model.owned_by(analysis) if getattr(el, "declared_name", "") == "range_km"
+    )
+    assert "fake==" in written.value.source  # provenance names the checked engine

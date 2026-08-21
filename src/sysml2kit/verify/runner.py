@@ -8,6 +8,7 @@ into the model with provenance, opt-in.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
@@ -21,6 +22,8 @@ from sysml2kit.model.container import Model
 from sysml2kit.model.metadata import MetadataUsage
 from sysml2kit.verify.binding import VerificationBinding, build_payload, extract_bindings
 from sysml2kit.verify.engines import EngineRegistry
+
+logger = logging.getLogger(__name__)
 
 VERDICT_NAME = "verificationVerdict"
 _RESULT_SOURCE_PREFIX = "sysml2kit.verify"
@@ -141,7 +144,21 @@ def run_verification(
     for binding in bindings:
         results.append(_run_binding(binding, registry, base_dir, engine_versions))
 
-    by_analysis = {r.analysis: r for r in results}
+    # First binding per analysis wins for checking, matching apply_results'
+    # selection, so provenance always names the engine that produced the
+    # verdict. Full multi-binding (fidelity ladder) support is planned; until
+    # then extra bindings execute but are not checked, and we say so.
+    by_analysis: dict[str, AnalysisResult] = {}
+    for result in results:
+        if result.analysis in by_analysis:
+            logger.warning(
+                "analysis %s has multiple bindings; only the first (%s) is "
+                "checked against requirements",
+                result.analysis,
+                by_analysis[result.analysis].engine,
+            )
+            continue
+        by_analysis[result.analysis] = result
     verdicts = [
         _verdict(spec, by_analysis[qualified])
         for spec in extract_requirements(model)
