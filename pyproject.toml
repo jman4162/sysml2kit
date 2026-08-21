@@ -1,0 +1,170 @@
+[build-system]
+# hatchling 1.32 emits Metadata-Version 2.5, which twine (and the release
+# pipeline's checks) do not accept yet; cap until the toolchain catches up.
+requires = ["hatchling>=1.27,<1.32", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sysml2kit"
+dynamic = ["version"]
+description = "API-first Python tooling for building, querying, validating, and automating SysML v2 models"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "John Hodge", email = "jhodge007@gmail.com" }]
+maintainers = [{ name = "John Hodge", email = "jhodge007@gmail.com" }]
+keywords = [
+  "sysml",
+  "sysml-v2",
+  "kerml",
+  "mbse",
+  "systems-engineering",
+  "requirements",
+  "traceability",
+  "model-based-engineering",
+  "omg",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development :: Libraries",
+  "Typing :: Typed",
+]
+dependencies = [
+  "pydantic>=2.7",
+  "typer>=0.12",
+  "httpx>=0.27",
+  "pint>=0.24",
+]
+
+[project.optional-dependencies]
+# sysmlpy has a single maintainer; cap the minor version and bump deliberately
+# after checking the release notes.
+parse = ["sysmlpy>=0.36.2,<0.37"]
+graph = ["networkx>=3.2"]
+
+[project.scripts]
+sysml2kit = "sysml2kit.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/jman4162/sysml2kit"
+Source = "https://github.com/jman4162/sysml2kit"
+Issues = "https://github.com/jman4162/sysml2kit/issues"
+Changelog = "https://github.com/jman4162/sysml2kit/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+test = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "pytest-regressions>=2.7",
+  "hypothesis>=6.130",
+  "respx>=0.22",
+]
+lint = ["mypy>=1.15", "ruff>=0.16"]
+parse-test = ["sysmlpy>=0.36.2,<0.37"]
+docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.27"]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "parse-test" },
+  { include-group = "docs" },
+]
+
+# ----------------------------------------------------------------- hatch / vcs
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0.dev0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/sysml2kit/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sysml2kit"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [".github", "scripts/.slopvenv"]
+
+# ------------------------------------------------------------------------ ruff
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = ["src/sysml2kit/_version.py"]
+
+[tool.ruff.lint]
+extend-select = [
+  "B",    # flake8-bugbear
+  "I",    # isort
+  "UP",   # pyupgrade
+  "C4",   # comprehensions
+  "SIM",  # simplify
+  "RET",  # return
+  "PT",   # pytest style
+  "RUF",  # ruff-specific
+  "D",    # pydocstyle
+  "ARG",  # unused arguments
+  "PTH",  # use pathlib
+  "TID",  # tidy imports
+  "ICN",  # import conventions
+]
+ignore = [
+  "D105", # magic method docstring
+  "D107", # __init__ docstring (documented on the class)
+  "D203", # incompatible with D211
+  "D213", # incompatible with D212
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ARG"]
+"docs/**" = ["D"]
+
+# ------------------------------------------------------------------------ mypy
+[tool.mypy]
+# No `python_version` pin: mypy follows the interpreter it runs under.
+strict = true
+warn_unreachable = true
+files = ["src/sysml2kit"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["sysmlpy.*", "pint.*", "networkx.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ---------------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests", "src/sysml2kit"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "--doctest-modules"]
+xfail_strict = true
+filterwarnings = ["error"]
+markers = [
+  "parse: requires the sysmlpy parse extra",
+  "api: requires a live Systems Modeling API server",
+  "conformance: requires the JVM pilot-implementation oracle",
+]
+
+# -------------------------------------------------------------------- coverage
+[tool.coverage.run]
+source = ["src/sysml2kit"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
+
+# ------------------------------------------------------------------- slopscore
+[tool.slopscore]
+profile = "technical"

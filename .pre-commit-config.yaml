@@ -1,0 +1,39 @@
+ci:
+  autoupdate_schedule: monthly
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        files: ^src/
+        additional_dependencies:
+          - pydantic>=2.7
+          - typer>=0.12
+          - httpx>=0.27
+
+  - repo: https://github.com/jman4162/slopscore
+    rev: v0.9.1
+    hooks:
+      - id: slopscore-lint
+        args: ["--profile", "technical", "--fail-on", "high"]
+        files: '\.(md|py)$'
+        exclude: '^src/sysml2kit/_version\.py$'

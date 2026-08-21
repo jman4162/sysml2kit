@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "sysml2kit: API-first Python tooling for SysML v2 models"
+authors:
+  - family-names: Hodge
+    given-names: John
+    email: jah70@vt.edu
+license: Apache-2.0
+repository-code: "https://github.com/jman4162/sysml2kit"
+url: "https://github.com/jman4162/sysml2kit"
+keywords:
+  - sysml
+  - mbse
+  - systems-engineering
+  - requirements
+  - traceability
