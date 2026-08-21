@@ -1,7 +1,8 @@
 [build-system]
-# hatchling 1.32 emits Metadata-Version 2.5; current twine passes it
-# (checked 2026-08-21), so the earlier <1.32 cap is lifted.
-requires = ["hatchling>=1.27,<2", "hatch-vcs>=0.4"]
+# hatchling 1.32 emits Metadata-Version 2.5. Current twine accepts it, but
+# the release pipeline's build-and-inspect action vendors an older twine
+# that rejects it (seen failing 2026-08-21); keep the cap until it updates.
+requires = ["hatchling>=1.27,<1.32", "hatch-vcs>=0.4"]
 build-backend = "hatchling.build"
 
 [project]
