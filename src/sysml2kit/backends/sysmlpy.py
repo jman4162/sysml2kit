@@ -276,9 +276,12 @@ def grammar_signature(text: str) -> dict[str, int]:
     def walk(node: Any) -> None:
         if isinstance(node, dict):
             node_name = node.get("name")
-            if isinstance(node_name, str) and node_name not in _SIGNATURE_EXCLUDE:
-                if node_name.endswith(("Usage", "Definition")) or node_name in _SIGNATURE_EXTRA:
-                    counts[node_name] = counts.get(node_name, 0) + 1
+            if (
+                isinstance(node_name, str)
+                and node_name not in _SIGNATURE_EXCLUDE
+                and (node_name.endswith(("Usage", "Definition")) or node_name in _SIGNATURE_EXTRA)
+            ):
+                counts[node_name] = counts.get(node_name, 0) + 1
             for key, value in node.items():
                 if key != "name":
                     walk(value)
