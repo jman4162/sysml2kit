@@ -7,8 +7,8 @@ GitHub, Claude artifacts).
 ```python
 from sysml2kit.views import to_mermaid_trace, to_mermaid_tree
 
-print(to_mermaid_trace(model))   # requirements, parts, analyses + edges
-print(to_mermaid_tree(model))    # package/part/port ownership
+print(to_mermaid_trace(model))  # requirements, parts, analyses + edges
+print(to_mermaid_tree(model))  # package/part/port ownership
 ```
 
 ```bash

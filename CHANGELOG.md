@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.0 — 2026-08-21
+
+- **Verification execution** (`sysml2kit.verify`): `verificationBinding`
+  metadata binds an analysis case to an engine resolved by name from the
+  `sysml2kit.engines` entry-point group (model text never names code paths).
+  `run_verification` executes bound analyses and checks each metricKey
+  requirement with margins; `apply_results` writes metrics and verdicts back
+  into the model with provenance, idempotently. CLI `sysml2kit verify`, MCP
+  tool `requirements_verify` (nine tools now), `verify` extra for YAML
+  configs, and a `docs/verification.md` flagship page. First engine:
+  phased-array-systems (PR #2 there).
+- **Live-server harness**: `docker/compose.yaml` runs the pilot
+  implementation (digest-pinned) + postgres; `api`-marked round-trip tests
+  pass against the real server; weekly advisory `live-api` workflow. Live
+  testing hardened the client and reader for the pilot dialect: list-typed
+  endpoints/typing/text adapted on push and tolerated on read, verify/derive
+  pushed as Dependency, multiplicity/doc dropped by the server, server-minted
+  element ids; known-@type records that do not fit the profile now degrade to
+  OpaqueElement instead of failing the read.
+- **`api` CLI group**: `projects`, `pull` (newest commit by default),
+  `push --create`; `SYSML2KIT_API_URL`/`SYSML2KIT_API_TOKEN` env vars;
+  `SysMLApiClient.head_commit`.
+- **Diagrams docs page** and a README refresh for the 0.3 surface.
+- Upstream sysmlpy fixes submitted for the two pinned parse losses:
+  dependency statements (mycr0ft/sysmlpy#7) and allocate endpoints
+  (mycr0ft/sysmlpy#6).
+
 ## 0.2.0 — 2026-08-21
 
 - **Parse fidelity**: the sysmlpy backend now walks the raw ANTLR dict
