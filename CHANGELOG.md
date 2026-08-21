@@ -37,9 +37,10 @@ bars, and budgeted escalation — from JSON or from the textual notation.
   mapped through server-minted ids); the interchange reader folds
   membership records back into the owner map. New `api branches` and
   `api commits` subcommands.
-- Pins: sysmlpy floor 0.36.3; the hatchling `<1.32` cap is lifted
-  (Metadata-Version 2.5 passes current twine); the 2026-05 spec pin was
-  re-confirmed as newest on 2026-08-21.
+- Pins: sysmlpy floor 0.36.3; the hatchling `<1.32` cap stays (current
+  twine accepts Metadata-Version 2.5 but the release pipeline's vendored
+  twine still rejects it); the 2026-05 spec pin was re-confirmed as
+  newest on 2026-08-21.
 
 ## 0.3.1 — 2026-08-21
 
