@@ -3,7 +3,8 @@
 ## Reference spec release
 
 This package targets the OMG SysML v2 standard as published in the
-`Systems-Modeling/SysML-v2-Release` repository, tag **`2026-05`**.
+`Systems-Modeling/SysML-v2-Release` repository, tag **`2026-05`** (still the
+newest release tag as of 2026-08-21).
 
 Policy: the pin moves at most quarterly, in a minor release, with the change
 noted in the changelog. `src/sysml2kit/interchange/typemap.py` is the single

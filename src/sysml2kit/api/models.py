@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Project(BaseModel):
@@ -23,6 +23,14 @@ class Branch(BaseModel):
     id: str = Field(alias="@id")
     name: str | None = None
     head: str | None = None
+
+    @field_validator("head", mode="before")
+    @classmethod
+    def _head_ref_to_id(cls, value: object) -> object:
+        # The pilot sends head as an identified ref: {"@id": "..."}.
+        if isinstance(value, dict):
+            return value.get("@id")
+        return value
 
 
 class Commit(BaseModel):

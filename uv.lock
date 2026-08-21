@@ -2030,7 +2030,7 @@ requires-dist = [
     { name = "pint", specifier = ">=0.24" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pyyaml", marker = "extra == 'verify'", specifier = ">=6.0" },
-    { name = "sysmlpy", marker = "extra == 'parse'", specifier = ">=0.36.2,<0.37" },
+    { name = "sysmlpy", marker = "extra == 'parse'", specifier = ">=0.36.3,<0.37" },
     { name = "typer", specifier = ">=0.12" },
 ]
 provides-extras = ["graph", "mcp", "parse", "verify"]
@@ -2048,7 +2048,7 @@ dev = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = ">=0.16" },
-    { name = "sysmlpy", specifier = ">=0.36.2,<0.37" },
+    { name = "sysmlpy", specifier = ">=0.36.3,<0.37" },
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 docs = [
@@ -2061,7 +2061,7 @@ lint = [
     { name = "types-pyyaml", specifier = ">=6.0" },
 ]
 mcp-test = [{ name = "mcp", specifier = ">=1.26,<2" }]
-parse-test = [{ name = "sysmlpy", specifier = ">=0.36.2,<0.37" }]
+parse-test = [{ name = "sysmlpy", specifier = ">=0.36.3,<0.37" }]
 test = [
     { name = "hypothesis", specifier = ">=6.130" },
     { name = "pytest", specifier = ">=8.3" },
@@ -2073,7 +2073,7 @@ verify-test = [{ name = "pyyaml", specifier = ">=6.0" }]
 
 [[package]]
 name = "sysmlpy"
-version = "0.36.2"
+version = "0.36.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "antlr4-python3-runtime" },
@@ -2081,9 +2081,9 @@ dependencies = [
     { name = "pint" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/bd/4cbcd12b26b93f8a5ef2b5a2486a7daf8ce206157208dc6015d6f93c9a54/sysmlpy-0.36.2.tar.gz", hash = "sha256:d0964682ef46f5df76b586b01f3f95f8800de238081494f6672a059516d34792", size = 947055, upload-time = "2026-08-18T18:38:20.114Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/14/821bcad064d262008b3d245cecaeb1d633ed7edceeb207a9041791fae709/sysmlpy-0.36.3.tar.gz", hash = "sha256:813c4623e7ce2c78601a11e621de249dc865ffc1c634ba911246c19f4b220ce6", size = 947406, upload-time = "2026-08-21T19:43:00.344Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/3f/853505e55d3ad75c5c97cd6ccb0833ff9eabd8e337297d6699e635ded4e6/sysmlpy-0.36.2-py3-none-any.whl", hash = "sha256:8c71a488837bb03ed79a80683b92d58069e156f3a600294995570c1c3cbc4181", size = 1009955, upload-time = "2026-08-18T18:38:18.161Z" },
+    { url = "https://files.pythonhosted.org/packages/88/8c/319ace30cbd228a3cdae5c5ed2c10192c1e4f9afa5f64d0a9535d041e1c4/sysmlpy-0.36.3-py3-none-any.whl", hash = "sha256:f6a2c4a22114991e1e07f300028abdc98a8427f729d3f12f24cb40639d4d550b", size = 1010332, upload-time = "2026-08-21T19:42:58.516Z" },
 ]
 
 [[package]]

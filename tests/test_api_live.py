@@ -6,10 +6,10 @@ pytest -m api tests/test_api_live.py``. Skipped entirely when the env var is
 absent, so the default suite never needs a server.
 
 What the pilot preserves (and these tests assert): element identity, kind,
-names, short names. What it does not (documented pilot-dialect
-degradations): ownership (it models ownership as OwningMembership elements
-and ignores our ``owningRelatedElement`` key), verify/derive kinds (pushed
-as Dependency), multiplicity (dropped on push). Full fidelity lives in
+names, short names, and ownership (pushed as a second commit of
+OwningMembership records, folded back on read). What it does not
+(documented pilot-dialect degradations): verify/derive kinds (pushed as
+Dependency) and multiplicity (dropped on push). Full fidelity lives in
 interchange JSON files, not on the server.
 """
 
@@ -30,7 +30,8 @@ pytestmark = [
 #: Keys the push adapter transforms or the server rewrites; excluded from the
 #: field-survival check.
 DIALECT_KEYS = {
-    "owningRelatedElement",  # pilot models ownership as OwningMembership elements
+    "owningRelatedElement",  # ownership rides in OwningMembership records instead
+    "aliasIds",  # added by push to map local ids to server-minted ids
     "text",
     "source",
     "target",
@@ -121,3 +122,20 @@ def test_projects_listing_includes_created(client):
     name = f"sysml2kit-live-{uuid4().hex[:8]}"
     created = client.create_project(name)
     assert any(p.id == created.id for p in client.list_projects())
+
+
+def test_ownership_round_trips(client, vehicle: Model):
+    project = client.create_project(f"kit-own-{uuid4().hex[:8]}")
+    commit = client.push_model(project.id, vehicle)
+    pulled = client.list_elements(project.id, commit.id)
+
+    def owner_names(model: Model):
+        pairs = set()
+        for member, owner in model.owner.items():
+            member_el, owner_el = model.elements[member], model.elements[owner]
+            if member_el.declared_name and owner_el.declared_name:
+                pairs.add((member_el.declared_name, owner_el.declared_name))
+        return pairs
+
+    assert owner_names(vehicle) <= owner_names(pulled)
+    assert len(pulled.roots) == len(vehicle.roots)

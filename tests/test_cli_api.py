@@ -51,6 +51,9 @@ def test_api_push_with_create(tmp_path, vehicle):
     respx.post(f"{BASE}/projects/p9/commits").mock(
         return_value=httpx.Response(200, json={"@id": "c1"})
     )
+    respx.get(f"{BASE}/projects/p9/commits/c1/elements").mock(
+        return_value=httpx.Response(200, json=[])
+    )
     result = runner.invoke(
         app, ["api", "push", str(model_file), "--project", "New", "--create", "--url", BASE]
     )
@@ -68,3 +71,37 @@ def test_api_push_unknown_project_without_create(tmp_path, vehicle):
         app, ["api", "push", str(model_file), "--project", "Nope", "--url", BASE]
     )
     assert result.exit_code != 0
+
+
+@respx.mock
+def test_api_branches():
+    respx.get(f"{BASE}/projects").mock(
+        return_value=httpx.Response(200, json=[{"@id": "p1", "name": "Demo"}])
+    )
+    respx.get(f"{BASE}/projects/p1/branches").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"@id": "b1", "name": "main", "head": {"@id": "c9"}}],
+        )
+    )
+    result = runner.invoke(app, ["api", "branches", "Demo", "--url", BASE])
+    assert result.exit_code == 0, result.output
+    assert "main" in result.output
+    assert "head=c9" in result.output
+
+
+@respx.mock
+def test_api_commits():
+    respx.get(f"{BASE}/projects").mock(
+        return_value=httpx.Response(200, json=[{"@id": "p1", "name": "Demo"}])
+    )
+    respx.get(f"{BASE}/projects/p1/commits").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"@id": "c1", "created": "2026-08-21T00:00:00Z", "description": "first"}],
+        )
+    )
+    result = runner.invoke(app, ["api", "commits", "Demo", "--url", BASE])
+    assert result.exit_code == 0, result.output
+    assert "c1" in result.output
+    assert "first" in result.output

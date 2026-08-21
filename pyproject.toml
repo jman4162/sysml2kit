@@ -1,7 +1,7 @@
 [build-system]
-# hatchling 1.32 emits Metadata-Version 2.5, which twine (and the release
-# pipeline's checks) do not accept yet; cap until the toolchain catches up.
-requires = ["hatchling>=1.27,<1.32", "hatch-vcs>=0.4"]
+# hatchling 1.32 emits Metadata-Version 2.5; current twine passes it
+# (checked 2026-08-21), so the earlier <1.32 cap is lifted.
+requires = ["hatchling>=1.27,<2", "hatch-vcs>=0.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -48,7 +48,7 @@ dependencies = [
 [project.optional-dependencies]
 # sysmlpy has a single maintainer; cap the minor version and bump deliberately
 # after checking the release notes.
-parse = ["sysmlpy>=0.36.2,<0.37"]
+parse = ["sysmlpy>=0.36.3,<0.37"]
 graph = ["networkx>=3.2"]
 # mcp 2.0.0 removed mcp.server.fastmcp; stay on 1.x until the surface is ported.
 mcp = ["mcp>=1.26,<2"]
@@ -73,7 +73,7 @@ test = [
   "respx>=0.22",
 ]
 lint = ["mypy>=1.15", "ruff>=0.16", "types-PyYAML>=6.0"]
-parse-test = ["sysmlpy>=0.36.2,<0.37"]
+parse-test = ["sysmlpy>=0.36.3,<0.37"]
 mcp-test = ["mcp>=1.26,<2"]
 verify-test = ["pyyaml>=6.0"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.27"]

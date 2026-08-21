@@ -9,6 +9,7 @@ hundred lines against the REST/JSON binding and returns sysml2kit models.
 from __future__ import annotations
 
 import types
+import uuid
 from typing import Any, Self
 
 import httpx
@@ -18,6 +19,9 @@ from sysml2kit.model.container import Model
 
 from .errors import ApiError
 from .models import Branch, Commit, Project
+
+#: Deterministic ids for pushed OwningMembership records.
+_MEMBERSHIP_NAMESPACE = uuid.UUID("6ba7b811-9dad-11d1-80b4-00c04fd430c8")
 
 
 class SysMLApiClient:
@@ -140,18 +144,67 @@ class SysMLApiClient:
         branch: str | None = None,
         message: str | None = None,
     ) -> Commit:
-        """Create a commit whose change set inserts every element of the model."""
-        change = [
-            {"@type": "DataVersion", "payload": self._to_server_record(record)}
-            for record in model_to_json(model)
-        ]
+        """Push a model as one or two commits (elements, then ownership).
+
+        The pilot re-mints element ids and resolves references only against
+        already-committed rows, so ownership cannot ride along with the
+        elements. Each element therefore carries its local id in
+        ``aliasIds``; after the element commit, the aliases map local ids to
+        server-minted ids and a second commit adds one ``OwningMembership``
+        per ownership pair. A model without ownership pushes as a single
+        commit. The returned commit is the head (the membership commit when
+        one was needed).
+        """
+        change = []
+        for record in model_to_json(model):
+            adapted = self._to_server_record(record)
+            adapted["aliasIds"] = [record["@id"]]
+            change.append({"@type": "DataVersion", "payload": adapted})
         payload: dict[str, Any] = {"@type": "Commit", "change": change}
         if message:
             payload["description"] = message
         path = f"/projects/{project_id}/commits"
         if branch:
             path += f"?branchId={branch}"
-        return Commit.model_validate(self._post(path, payload))
+        element_commit = Commit.model_validate(self._post(path, payload))
+        if not model.owner:
+            return element_commit
+
+        minted: dict[str, str] = {}
+        listing = self._get(f"/projects/{project_id}/commits/{element_commit.id}/elements")
+        for summary in listing:
+            record = summary
+            if "aliasIds" not in record:
+                record = self.get_element(project_id, element_commit.id, summary["@id"])
+            for alias in record.get("aliasIds") or []:
+                minted[str(alias)] = record["@id"]
+
+        memberships = []
+        for member, owner in model.owner.items():
+            member_id, owner_id = minted.get(str(member)), minted.get(str(owner))
+            if member_id is None or owner_id is None:
+                continue  # e.g. an element the server rejected
+            memberships.append(
+                {
+                    "@type": "DataVersion",
+                    "payload": {
+                        "@type": "OwningMembership",
+                        "@id": str(uuid.uuid5(_MEMBERSHIP_NAMESPACE, f"{owner}->{member}")),
+                        "memberElement": {"@id": member_id},
+                        "membershipOwningNamespace": {"@id": owner_id},
+                    },
+                }
+            )
+        if not memberships:
+            return element_commit
+        ownership_payload: dict[str, Any] = {
+            "@type": "Commit",
+            "previousCommit": {"@id": element_commit.id},
+            "change": memberships,
+        }
+        if message:
+            ownership_payload["description"] = f"{message} (ownership)"
+        return Commit.model_validate(self._post(path, ownership_payload))
 
     def head_commit(self, project_id: str) -> Commit:
         """Return the newest commit of a project; raises ApiError when empty."""

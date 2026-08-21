@@ -104,6 +104,17 @@ def record_to_element(record: dict[str, Any]) -> Element:
         return OpaqueElement(element_id=UUID(eid), type_name=type_name, raw=dict(record))
 
 
+def _membership_ref(record: dict[str, Any], *keys: str) -> UUID | None:
+    """First resolvable ``{"@id"}`` (scalar or single-element list) among keys."""
+    for key in keys:
+        value = record.get(key)
+        if isinstance(value, list) and len(value) == 1:
+            value = value[0]
+        if isinstance(value, dict) and isinstance(value.get("@id"), str):
+            return UUID(value["@id"])
+    return None
+
+
 def model_from_json(data: list[dict[str, Any]] | str | Path) -> Model:
     """Build a Model from a record list, a JSON string, or a file path."""
     if isinstance(data, Path):
@@ -120,6 +131,19 @@ def model_from_json(data: list[dict[str, Any]] | str | Path) -> Model:
     model = Model()
     owners: dict[UUID, UUID] = {}
     for record in records:
+        if record.get("@type") == "OwningMembership":
+            # Servers speaking the full abstract syntax carry ownership as
+            # OwningMembership records; fold them into the owner map instead
+            # of keeping them as elements.
+            member = _membership_ref(record, "memberElement", "ownedMemberElement")
+            owner = _membership_ref(record, "membershipOwningNamespace", "owningRelatedElement")
+            if member is not None and owner is not None:
+                owners[member] = owner
+            else:
+                logger.warning(
+                    "OwningMembership %s without resolvable ends; dropped", record.get("@id")
+                )
+            continue
         element = record_to_element(record)
         model.elements[element.element_id] = element
         owning = record.get("owningRelatedElement")

@@ -59,6 +59,35 @@ def api_projects(url: UrlOption, token: TokenOption = None) -> None:
             typer.echo(f"{project.id}  {project.name or ''}")
 
 
+@api_app.command("branches")
+def api_branches(
+    project: Annotated[str, typer.Argument(help="Project name or id.")],
+    url: UrlOption,
+    token: TokenOption = None,
+) -> None:
+    """List a project's branches."""
+    with _api_client(url, token) as client:
+        resolved = _resolve_project(client, project)
+        for branch in client.list_branches(resolved.id):
+            head = branch.head or "-"
+            typer.echo(f"{branch.id}  {branch.name or ''}  head={head}")
+
+
+@api_app.command("commits")
+def api_commits(
+    project: Annotated[str, typer.Argument(help="Project name or id.")],
+    url: UrlOption,
+    token: TokenOption = None,
+) -> None:
+    """List a project's commits, oldest first."""
+    with _api_client(url, token) as client:
+        resolved = _resolve_project(client, project)
+        for commit in client.list_commits(resolved.id):
+            created = commit.created or ""
+            description = commit.description or ""
+            typer.echo(f"{commit.id}  {created}  {description}")
+
+
 @api_app.command("pull")
 def api_pull(
     project: Annotated[str, typer.Argument(help="Project id or unique name.")],
