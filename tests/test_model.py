@@ -38,7 +38,7 @@ def test_qualified_name_unnamed_elements(vehicle: Model):
     rels = vehicle.relationships(kind=SatisfyRelationship)
     assert len(rels) == 1
     name = vehicle.qualified_name(rels[0])
-    assert "SatisfyRelationship#" in name
+    assert "SatisfyRelationship(battery->BatteryMass)" in name
 
 
 def test_find_by_kind(vehicle: Model):

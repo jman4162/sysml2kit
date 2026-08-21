@@ -34,10 +34,13 @@ from .keywords import KEYWORDS, escape_name
 
 _INDENT = "    "
 
+# satisfy and allocate have first-class textual forms; the grammar has no
+# standalone derive/verify statement, so those emit as dependencies with a
+# marker comment (the JSON interchange keeps the precise kind).
 _RELATION_FORMS: dict[type[Relationship], str] = {
     SatisfyRelationship: "satisfy {target} by {source};",
-    VerifyRelationship: "verify {target} by {source};",
-    DeriveRelationship: "derive {source} from {target};",
+    VerifyRelationship: "dependency from {source} to {target}; // verify",
+    DeriveRelationship: "dependency from {source} to {target}; // derive",
     AllocateRelationship: "allocate {source} to {target};",
 }
 

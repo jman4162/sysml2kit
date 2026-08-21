@@ -92,6 +92,14 @@ class Model:
 
     def _positional_name(self, eid: UUID) -> str:
         el = self.elements[eid]
+        if isinstance(el, Relationship):
+            # Endpoint-based, so the name survives sibling reordering (which a
+            # sorted interchange round trip causes) and keeps stable ids stable.
+            source = self.elements.get(el.source.target)
+            target = self.elements.get(el.target.target)
+            source_label = source.label if source is not None else str(el.source.target)
+            target_label = target.label if target is not None else str(el.target.target)
+            return f"{type(el).__name__}({source_label}->{target_label})"
         oid = self.owner.get(eid)
         siblings = self.owned.get(oid, []) if oid is not None else self.roots
         index = siblings.index(eid)
