@@ -91,9 +91,20 @@ JSON. Remaining losses are pinned by tests in
 
 ## Verification binding convention
 
-A ``MetadataUsage`` named ``verificationBinding`` annotating an
-``AnalysisCaseUsage`` binds that analysis to an executable engine. Values
-(flat scalars, per the metadata model):
+A ``MetadataUsage`` annotating an ``AnalysisCaseUsage`` binds that
+analysis to an executable engine when it is recognizable as a
+``verificationBinding`` in either of two forms:
+
+- the usage itself is named ``verificationBinding``
+  (``metadata verificationBinding about study {...}``), or
+- the usage is a *named* usage typed by a
+  ``metadata def verificationBinding``
+  (``metadata analyticBinding : verificationBinding about study {...}``).
+
+The typed form is required for a fidelity ladder: sibling usages must
+carry distinct names for stable-id hashing, so they share the annotation
+kind through the definition instead of the name. Values (flat scalars,
+per the metadata model):
 
 | key | type | meaning |
 |---|---|---|
