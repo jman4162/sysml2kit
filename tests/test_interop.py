@@ -78,3 +78,27 @@ def test_equality_op_sets_both_bounds():
     builder.attr(model, "op", "==", owner=req)
     spec = extract_requirements(model)[0]
     assert (spec.minimum, spec.maximum) == (5.0, 5.0)
+
+
+def test_requirement_spec_schema_is_frozen():
+    """Downstream adapters (phased-array-systems, aedl) consume these fields.
+
+    Changing this set is a compatibility decision, not a refactor: update the
+    adapters in those repos in the same release.
+    """
+    from sysml2kit.interop import RequirementSpec
+
+    assert set(RequirementSpec.model_fields) == {
+        "id",
+        "name",
+        "metric_key",
+        "op",
+        "value",
+        "minimum",
+        "maximum",
+        "units",
+        "severity",
+        "source_element_id",
+        "satisfied_by",
+        "verified_by",
+    }

@@ -12,8 +12,13 @@ sysml2kit diff old.json new.json --by-name  # match by qualified name, not id
 sysml2kit export model.sysml --to json -o model.json
 sysml2kit export model.json --to sysml
 sysml2kit export model.json --to json --stable-ids  # UUIDv5 ids for committing
+sysml2kit export model.json --to mermaid --diagram trace  # or tree
+sysml2kit fmt model.sysml                 # refuses lossy rewrites; --lossy overrides
+sysml2kit fmt model.sysml --check         # CI mode: exit 1 if it would change
+sysml2kit mcp serve                       # MCP server (mcp extra)
 sysml2kit version
 ```
 
 Exit codes: `validate` returns 1 when any error-severity issue is found;
-`diff` returns 1 when the models differ. Both suit CI gates.
+`diff` returns 1 when the models differ; `fmt --check` returns 1 when the
+file would change. All suit CI gates.

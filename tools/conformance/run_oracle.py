@@ -39,8 +39,7 @@ def fetch_jar() -> Path:
     digest = hashlib.sha256(jar.read_bytes()).hexdigest()
     if digest != JAR_SHA256:
         print(
-            f"[oracle] sha256 mismatch for {jar.name}: got {digest}, "
-            f"expected {JAR_SHA256}",
+            f"[oracle] sha256 mismatch for {jar.name}: got {digest}, expected {JAR_SHA256}",
             file=sys.stderr,
         )
         jar.unlink()
