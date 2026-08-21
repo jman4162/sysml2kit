@@ -36,6 +36,7 @@ nav:
   - Traceability: traceability.md
   - Verification: verification.md
   - Interchange: interchange.md
+  - Diagrams: views.md
   - Command line: cli.md
   - MCP server: mcp.md
   - API client: api-client.md

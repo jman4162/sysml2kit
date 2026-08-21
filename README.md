@@ -4,20 +4,25 @@
 [![PyPI](https://img.shields.io/pypi/v/sysml2kit)](https://pypi.org/project/sysml2kit/)
 [![Python](https://img.shields.io/pypi/pyversions/sysml2kit)](https://pypi.org/project/sysml2kit/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-jman4162.github.io-blue)](https://jman4162.github.io/sysml2kit/)
 
 API-first Python tooling for building, querying, validating, and automating
 SysML v2 models.
 
-> **Status: pre-alpha.** The 0.1.x line has a working core (model, writer,
-> interchange, queries, validation, diff, API client, parse backend); the API
-> may still move between minor versions. Pin an exact version if you depend
-> on it.
+> **Status: pre-alpha.** The 0.3.x line covers the full loop: model, writer,
+> interchange, queries, validation, diff, mermaid views, parse backend, MCP
+> server, API client with a live-server harness, and verification execution.
+> The API may still move between minor versions; pin an exact version if you
+> depend on it. Changes: [CHANGELOG.md](CHANGELOG.md).
 
 `sysml2kit` is the requirements/architecture/traceability layer for
 engineering automation stacks: build a system model in Python, emit standard
 SysML v2 textual notation and Systems Modeling API JSON, run traceability
 queries (which requirements are unsatisfied? unverified? allocated where?),
-validate, and diff. It targets the OMG SysML v2 standard, not any vendor tool.
+validate, diff, and **execute verification**: analyses bound to registered
+engines run for real, and their metrics check the model's requirements. It
+targets the OMG SysML v2 standard, not any vendor tool. Docs:
+https://jman4162.github.io/sysml2kit/
 
 ## What it does
 
@@ -34,8 +39,15 @@ validate, and diff. It targets the OMG SysML v2 standard, not any vendor tool.
 - **Traceability queries**: unsatisfied/unverified requirements, allocation
   tables, requirement-to-part trace matrices.
 - **Validation and diff**: rule-based model checks and element-level diffs.
+- **Verification execution**: `verificationBinding` metadata binds an
+  analysis case to an engine from the `sysml2kit.engines` entry-point group;
+  `sysml2kit verify` runs it and checks each requirement with margins, and
+  can write results back into the model with provenance.
+- **Mermaid views**: ownership-tree and requirement-trace diagrams.
+- **MCP server**: nine tools for agents (`sysml2kit mcp serve`).
 - **API client**: a thin HTTP client for the OMG Systems Modeling API and
-  Services endpoints.
+  Services endpoints, plus a docker compose harness running the pilot
+  implementation for live round-trip testing.
 
 ## Install
 
@@ -43,6 +55,8 @@ validate, and diff. It targets the OMG SysML v2 standard, not any vendor tool.
 pip install sysml2kit            # core: build, write, query, validate, diff
 pip install "sysml2kit[parse]"   # + read .sysml files (sysmlpy backend)
 pip install "sysml2kit[graph]"   # + NetworkX export
+pip install "sysml2kit[mcp]"     # + MCP server for agents
+pip install "sysml2kit[verify]"  # + YAML verification-binding configs
 ```
 
 ## Quick start
@@ -81,9 +95,13 @@ sysml2kit
 ├── query         # traceability queries
 ├── validation    # rule-based checks (S2K001...)
 ├── diff          # element-level model diff
+├── views         # mermaid diagrams (trace, tree)
+├── verify        # verification bindings, engine registry, runner
 ├── api           # Systems Modeling API HTTP client
 ├── backends      # parser backends (sysmlpy behind the [parse] extra)
 ├── interop       # tool-agnostic requirement extraction
+├── mcp           # MCP server (behind the [mcp] extra)
+├── graph, units, workspace   # NetworkX export, pint helpers, path safety
 └── cli           # `sysml2kit` command line
 ```
 
@@ -93,13 +111,17 @@ The spec pin, element subset, and known deviations are documented in
 
 Domain content lives outside the kit. For antenna/RF systems engineering, see
 [sysml2kit-rf-library](https://github.com/jman4162/sysml2kit-rf-library), a
-SysML v2 model library consumed through this package.
+SysML v2 model library consumed through this package. Downstream bridges are
+merged in [phased-array-systems](https://github.com/jman4162/phased-array-systems)
+(`interop.sysml`: requirement sets and the `phased-array-systems` verification
+engine) and [aedl](https://github.com/jman4162/aedl-electromagnetic-design-agent)
+(`aedl.interop`: bound-form requirements).
 
 ## For agents
 
-An MCP server ships behind the `mcp` extra with eight tools: `model_show`,
+An MCP server ships behind the `mcp` extra with nine tools: `model_show`,
 `model_validate`, `model_diff`, `model_export`, `model_diagram`,
-`requirements_trace`, `requirements_extract`, `library_load`. Artifacts are
+`requirements_trace`, `requirements_extract`, `requirements_verify`, `library_load`. Artifacts are
 returned as file paths, not payloads.
 
 ```bash
@@ -111,8 +133,9 @@ sysml2kit mcp serve            # stdio; --transport http also supported
 {"mcpServers": {"sysml2kit": {"command": "sysml2kit", "args": ["mcp", "serve"]}}}
 ```
 
-The CLI (`sysml2kit show | validate | diff | export | fmt`) covers the same
-operations for shell use.
+The CLI covers the same operations for shell use:
+`sysml2kit show | validate | diff | export | fmt | verify | api | mcp serve`
+(`export --to mermaid` renders diagrams).
 
 ## Development
 
