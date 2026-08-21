@@ -7,7 +7,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.venv/
+.venv
 src/sysml2kit/_version.py
 
 # Tooling caches
