@@ -35,26 +35,37 @@ from .keywords import KEYWORDS, escape_name
 _INDENT = "    "
 
 # satisfy and allocate have first-class textual forms; the grammar has no
-# standalone derive/verify statement, so those emit as dependencies with a
-# marker comment (the JSON interchange keeps the precise kind).
-_RELATION_FORMS: dict[type[Relationship], str] = {
-    SatisfyRelationship: "satisfy {target} by {source};",
-    VerifyRelationship: "dependency from {source} to {target}; // verify",
-    DeriveRelationship: "dependency from {source} to {target}; // derive",
-    AllocateRelationship: "allocate {source} to {target};",
+# standalone derive/verify statement, so those emit as NAMED dependencies
+# whose name prefix (verify_/derive_) lets the parser reify the right kind.
+_DEPENDENCY_PREFIX: dict[type[Element], str] = {
+    VerifyRelationship: "verify_",
+    DeriveRelationship: "derive_",
 }
+
+
+def _dependency_names(model: Model) -> dict[UUID, str]:
+    """Deterministic verify_N/derive_N names, in ownership order."""
+    names: dict[UUID, str] = {}
+    counters = {"verify_": 0, "derive_": 0}
+    for element in model.iter_elements():
+        prefix = _DEPENDENCY_PREFIX.get(type(element))
+        if prefix is not None:
+            counters[prefix] += 1
+            names[element.element_id] = f"{prefix}{counters[prefix]}"
+    return names
 
 
 def write_model(model: Model) -> str:
     """Render every root element; one blank line between roots."""
-    chunks = [_render(model, model.elements[root], 0) for root in model.roots]
+    names = _dependency_names(model)
+    chunks = [_render(model, model.elements[root], 0, names) for root in model.roots]
     return "\n".join(chunk for chunk in chunks if chunk) + "\n"
 
 
 def write_package(model: Model, package: Element | UUID) -> str:
     """Render a single package subtree."""
     element = model.resolve(package) if isinstance(package, UUID) else package
-    return _render(model, element, 0) + "\n"
+    return _render(model, element, 0, _dependency_names(model)) + "\n"
 
 
 def write_file(model: Model, path: str | Path) -> None:
@@ -97,17 +108,20 @@ def _header(element: Element) -> str:
     return " ".join(parts)
 
 
-def _render(model: Model, element: Element, depth: int) -> str:
+def _render(model: Model, element: Element, depth: int, dep_names: dict[UUID, str]) -> str:
     indent = _INDENT * depth
     if isinstance(element, OpaqueElement):
         return f"{indent}// opaque element ({element.type_name}): {element.label}"
     if isinstance(element, Relationship):
-        form = _RELATION_FORMS[type(element)]
         scope = model.owner.get(element.element_id)
-        return indent + form.format(
-            source=_relative_path(model, scope, element.source),
-            target=_relative_path(model, scope, element.target),
-        )
+        source = _relative_path(model, scope, element.source)
+        target = _relative_path(model, scope, element.target)
+        if isinstance(element, SatisfyRelationship):
+            return f"{indent}satisfy {target} by {source};"
+        if isinstance(element, AllocateRelationship):
+            return f"{indent}allocate {source} to {target};"
+        name = dep_names[element.element_id]
+        return f"{indent}dependency {name} from {source} to {target};"
     if isinstance(element, ConnectionUsage):
         return _render_connection(model, element, indent)
     if isinstance(element, AttributeUsage):
@@ -143,7 +157,7 @@ def _render(model: Model, element: Element, depth: int) -> str:
     if isinstance(element, ConstraintUsage) and element.expression:
         body.append(f"{inner}{{ {element.expression} }}")
 
-    body.extend(_render(model, child, depth + 1) for child in model.owned_by(element))
+    body.extend(_render(model, child, depth + 1, dep_names) for child in model.owned_by(element))
 
     if not body:
         return header + ";"

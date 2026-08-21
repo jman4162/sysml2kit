@@ -24,7 +24,13 @@ from typing import Any
 from sysml2kit.model.analysis import AnalysisCaseDefinition, AnalysisCaseUsage
 from sysml2kit.model.base import Element, Ref
 from sysml2kit.model.container import Model
-from sysml2kit.model.relations import SatisfyRelationship
+from sysml2kit.model.metadata import MetadataUsage
+from sysml2kit.model.relations import (
+    AllocateRelationship,
+    DeriveRelationship,
+    SatisfyRelationship,
+    VerifyRelationship,
+)
 from sysml2kit.model.requirements import (
     ConstraintUsage,
     RequirementDefinition,
@@ -72,6 +78,9 @@ def _require_sysmlpy() -> Any:
         import sysmlpy
     except ImportError as exc:  # pragma: no cover - exercised via the error message test
         raise ImportError("parsing needs the 'parse' extra: pip install sysml2kit[parse]") from exc
+    from sysml2kit.backends._sysmlpy_patches import apply_patches
+
+    apply_patches()
     return sysmlpy
 
 
@@ -306,6 +315,43 @@ def grammar_signature(text: str) -> dict[str, int]:
     return counts
 
 
+_METADATA_FEATURE_TEXT = re.compile(r"^([A-Za-z_][\w.]*)=(.+?);?$")
+
+
+def _metadata_values(texts: list[str]) -> dict[str, str | float | int | bool]:
+    """Parse patched bodyFeature texts like ``engine="fake";`` into values."""
+    values: dict[str, str | float | int | bool] = {}
+    for text in texts:
+        match = _METADATA_FEATURE_TEXT.match(text.strip())
+        if not match:
+            logger.warning("unparsed metadata body feature %r", text)
+            continue
+        key, raw = match.group(1), match.group(2).strip()
+        if raw.startswith('"') and raw.endswith('"'):
+            values[key] = raw[1:-1]
+        elif raw in ("true", "false"):
+            values[key] = raw == "true"
+        else:
+            try:
+                values[key] = int(raw)
+            except ValueError:
+                try:
+                    values[key] = float(raw)
+                except ValueError:
+                    values[key] = raw
+    return values
+
+
+def _metadata_name(node: dict[str, Any]) -> str | None:
+    ident = node.get("identification")
+    if isinstance(ident, dict) and ident.get("declaredName"):
+        return str(ident["declaredName"])
+    typing = _first(node.get("ownedFeatureTyping"), "QualifiedName")
+    if typing and typing.get("names"):
+        return str(typing["names"][-1])
+    return None
+
+
 # ------------------------------------------------------------- the backend
 class SysmlpyBackend:
     """Parse SysML v2 text with sysmlpy's ANTLR visitor and map the raw dict."""
@@ -360,6 +406,34 @@ class SysmlpyBackend:
             else:
                 logger.warning("satisfy statement with unresolvable endpoints kept as-is")
             return
+        if node_name == "Dependency":
+            self._handle_dependency(node, owner, state)
+            return
+        if node_name == "AllocationUsage" and node.get("part") is not None:
+            names = [
+                qualified["names"]
+                for qualified in _iter_nodes(node.get("part"), "QualifiedName")
+                if qualified.get("names")
+            ]
+            if len(names) >= 2:
+                source = [seg for name in names[0] for seg in seg_split(name)]
+                target = [seg for name in names[1] for seg in seg_split(name)]
+                state.allocates.append((owner, source, target))
+            else:
+                logger.warning("allocate statement with unresolvable endpoints dropped")
+            return
+        if node_name == "MetadataFeature":
+            name = _metadata_name(node)
+            values = _metadata_values(node.get("bodyFeatures") or [])
+            annotation = _first(node.get("ownedRelationship_about"), "QualifiedName")
+            annotated = (
+                list(annotation["names"]) if annotation and annotation.get("names") else None
+            )
+            metadata_element = MetadataUsage(declared_name=name, values=values)
+            model.add(metadata_element, owner=owner)
+            if annotated:
+                state.annotations.append((metadata_element, annotated))
+            return
 
         cls = _NODE_MAP.get(node_name) if isinstance(node_name, str) else None
         if cls is None:
@@ -371,6 +445,28 @@ class SysmlpyBackend:
         element = self._build_element(cls, node, model, owner, state)
         body = node.get("body") or (_first(node, "UsageBody", skip_keys=frozenset()) or {})
         self._walk(body, model, element, state)
+
+    def _handle_dependency(
+        self, node: dict[str, Any], owner: Element | None, state: _WalkState
+    ) -> None:
+        ident = node.get("identification") or {}
+        name = ident.get("declaredName") if isinstance(ident, dict) else None
+        kind: type[VerifyRelationship | DeriveRelationship] | None = None
+        if isinstance(name, str):
+            if name.startswith("verify_"):
+                kind = VerifyRelationship
+            elif name.startswith("derive_"):
+                kind = DeriveRelationship
+        clients = [q["names"] for q in node.get("client") or [] if q.get("names")]
+        suppliers = [q["names"] for q in node.get("supplier") or [] if q.get("names")]
+        if kind is None or not clients or not suppliers:
+            logger.warning("dependency %r kept opaque (no verify_/derive_ name prefix)", name)
+            model_names = clients + suppliers
+            state.opaque_dependencies.append((owner, name, model_names))
+            return
+        source = [seg for part in clients[0] for seg in seg_split(part)]
+        target = [seg for part in suppliers[0] for seg in seg_split(part)]
+        state.dependencies.append((owner, kind, source, target))
 
     def _build_element(
         self,
@@ -417,27 +513,64 @@ class SysmlpyBackend:
         return element
 
 
+def seg_split(name: str) -> list[str]:
+    """Split a possibly dotted feature-chain segment into name parts."""
+    return name.split(".")
+
+
 class _WalkState:
     def __init__(self) -> None:
         self.typings: list[tuple[Element, list[str]]] = []
         self.subjects: list[tuple[Element, list[str]]] = []
         self.satisfies: list[tuple[Element | None, list[str], list[str]]] = []
+        self.dependencies: list[
+            tuple[
+                Element | None,
+                type[VerifyRelationship | DeriveRelationship],
+                list[str],
+                list[str],
+            ]
+        ] = []
+        self.allocates: list[tuple[Element | None, list[str], list[str]]] = []
+        self.annotations: list[tuple[MetadataUsage, list[str]]] = []
+        self.opaque_dependencies: list[tuple[Element | None, str | None, list[list[str]]]] = []
 
 
 def _resolve(model: Model, state: _WalkState) -> None:
     table = {model.qualified_name(eid): eid for eid in model.elements}
 
-    def lookup(names: list[str]) -> Element | None:
+    def root_prefix(element: Element | None) -> str | None:
+        if element is None:
+            return None
+        return model.qualified_name(element).split("::", 1)[0]
+
+    def lookup(names: list[str], scope: str | None = None) -> Element | None:
         path = "::".join(names)
         if path in table:
             return model.elements[table[path]]
         suffix_matches = [eid for qname, eid in table.items() if qname.endswith("::" + path)]
+        if scope is not None and len(suffix_matches) > 1:
+            # Prefer matches under the same root package as the statement:
+            # cross-package short names are otherwise ambiguous.
+            scoped = [
+                eid
+                for eid in suffix_matches
+                if model.qualified_name(eid).split("::", 1)[0] == scope
+            ]
+            if len(scoped) == 1:
+                return model.elements[scoped[0]]
         if len(suffix_matches) == 1:
             return model.elements[suffix_matches[0]]
         if len(names) == 1:
             name_matches = [el for el in model.elements.values() if el.declared_name == names[0]]
             if len(name_matches) == 1:
                 return name_matches[0]
+            if scope is not None:
+                scoped_named = [
+                    el for el in name_matches if model.qualified_name(el).split("::", 1)[0] == scope
+                ]
+                if len(scoped_named) == 1:
+                    return scoped_named[0]
         return None
 
     for element, names in state.typings:
@@ -449,10 +582,34 @@ def _resolve(model: Model, state: _WalkState) -> None:
         if target is not None and hasattr(element, "subject"):
             element.subject = Ref.to(target)
     for owner, source_names, target_names in state.satisfies:
-        source = lookup(source_names)
-        target = lookup(target_names)
+        scope = root_prefix(owner)
+        source = lookup(source_names, scope)
+        target = lookup(target_names, scope)
         if source is None or target is None:
             logger.warning("unresolved satisfy endpoints: %s -> %s", source_names, target_names)
             continue
-        rel = SatisfyRelationship(source=Ref.to(source), target=Ref.to(target))
-        model.add(rel, owner=owner)
+        model.add(SatisfyRelationship(source=Ref.to(source), target=Ref.to(target)), owner=owner)
+    for owner, kind, source_names, target_names in state.dependencies:
+        scope = root_prefix(owner)
+        source = lookup(source_names, scope)
+        target = lookup(target_names, scope)
+        if source is None or target is None:
+            logger.warning(
+                "unresolved %s endpoints: %s -> %s", kind.__name__, source_names, target_names
+            )
+            continue
+        model.add(kind(source=Ref.to(source), target=Ref.to(target)), owner=owner)
+    for owner, source_names, target_names in state.allocates:
+        scope = root_prefix(owner)
+        source = lookup(source_names, scope)
+        target = lookup(target_names, scope)
+        if source is None or target is None:
+            logger.warning("unresolved allocate endpoints: %s -> %s", source_names, target_names)
+            continue
+        model.add(AllocateRelationship(source=Ref.to(source), target=Ref.to(target)), owner=owner)
+    for metadata_usage, annotated_names in state.annotations:
+        annotation_target = lookup(annotated_names, root_prefix(metadata_usage))
+        if annotation_target is not None:
+            metadata_usage.annotated = Ref.to(annotation_target)
+        else:
+            logger.warning("unresolved metadata annotation target: %s", annotated_names)

@@ -37,8 +37,8 @@ def test_attribute_value_rendering(vehicle: Model):
 def test_relations_render(vehicle: Model):
     out = write_model(vehicle)
     assert "satisfy BatteryMass by battery;" in out
-    assert "dependency from RangeAnalysis to Range; // verify" in out
-    assert "dependency from BatteryMass to Range; // derive" in out
+    assert "dependency verify_1 from RangeAnalysis to Range;" in out
+    assert "dependency derive_1 from BatteryMass to Range;" in out
     assert "allocate Range to battery;" in out
 
 

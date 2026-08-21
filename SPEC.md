@@ -50,22 +50,34 @@ not drop elements the profile lacks classes for.
 
 The backend parses via ``sysmlpy.load_grammar_antlr`` and walks the raw
 ANTLR dict (the wrapper-object loader rebuilds usage bodies lossily and is
-not used). What survives a text round trip:
+not used). The backend also applies guarded runtime patches to sysmlpy's visitor
+(``backends/_sysmlpy_patches.py``; upstream: mycr0ft/sysmlpy #6 and #7 plus
+the metadata-body issue filed with them). Patches activate only for sysmlpy
+0.3x with the expected visitor surface; otherwise the pre-patch losses
+apply and their tests document them.
 
-| Round-trips | Lost upstream (sysmlpy visitor discards it) |
+| Round-trips (with patches active) | Still lost |
 |---|---|
-| names, short names | `dependency A to B;` statements (how the writer emits verify/derive) |
-| docs (package/part/requirement scope) | `allocate X to Y;` endpoints |
-| feature typing, incl. cross-package | `connect a.pa to b.pb;` endpoints |
-| multiplicity | `verification` case usages (dropped entirely) |
+| names, short names | unnamed `dependency A to B;` statements (the writer emits named `verify_N`/`derive_N` dependencies, which reify) |
+| docs (package/part/requirement scope) | `connect a.pa to b.pb;` endpoints |
+| feature typing, incl. cross-package | `verification` case usages (dropped entirely) |
+| multiplicity | metadata inside definition/case bodies (hence the package-level placement convention below) |
 | attribute values with units | value provenance (`source`/`confidence` have no textual slot) |
 | requirement subject and text | |
-| satisfy (package level and inside part bodies) | |
+| satisfy, verify, derive, allocate | |
+| package-level metadata with scalar values (verificationBinding included) | |
 
-Consequence: **satisfy traceability survives text; verify/derive/allocate
-require the JSON interchange.** The losses are pinned by tests in
-`tests/test_backend_fidelity.py` so an upstream sysmlpy fix surfaces as a
-test failure.
+Verify/derive encode as **named dependencies**: ``dependency verify_1 from
+ana to R1;`` — the ``verify_``/``derive_`` name prefix is the round-trip
+convention. Metadata annotations are placed at package level (the ``about``
+reference carries the attachment); ``builder.metadata`` defaults to this.
+Endpoint resolution prefers candidates under the same root package, so
+multi-package files with repeated short names resolve correctly.
+
+Consequence: **a `.sysml` file is a complete verification artifact** —
+`sysml2kit verify` on text produces the same verdicts as on interchange
+JSON. Remaining losses are pinned by tests in
+`tests/test_backend_fidelity.py`.
 
 ## Identity and ownership
 
@@ -101,8 +113,8 @@ the analysis (``source`` starts with ``sysml2kit.verify``) and a
 ``verificationVerdict`` metadata on each requirement; both replace prior
 same-named results, so reruns do not accumulate.
 
-Bindings are an interchange-JSON feature: metadata values round-trip through
-JSON, while textual-notation fidelity for metadata is not yet pinned.
+Bindings round-trip through interchange JSON and, at package level, through
+the textual notation (see the fidelity table above).
 
 ## Provenance on values
 

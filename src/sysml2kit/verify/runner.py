@@ -256,6 +256,7 @@ def apply_results(model: Model, run: VerificationRun) -> int:
                 "engine": run_result.engine,
                 **({"timestamp": run.timestamp} if run.timestamp else {}),
             },
+            owner=requirement,
             name=VERDICT_NAME,
         )
         added += 1

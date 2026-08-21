@@ -170,3 +170,79 @@ def test_builder_write_parse_round_trip_is_lossless_for_covered_subset():
     # provenance fields (source/confidence) do not exist in textual notation
     real = [e for e in entries if "source" not in e.detail or "->" not in e.detail]
     assert [e for e in real if e.kind in ("added", "removed")] == []
+
+
+def test_named_dependency_reifies_verify_and_derive():
+    model = parse(
+        "package P { requirement <'R1'> A; requirement <'R2'> B; analysis ana; "
+        "dependency verify_1 from ana to A; dependency derive_1 from B to A; }"
+    )
+    kinds = {type(el).__name__ for el in model.iter_elements()}
+    assert "VerifyRelationship" in kinds
+    assert "DeriveRelationship" in kinds
+
+
+def test_allocate_endpoints_survive_with_shim():
+    model = parse("package P { part b; requirement <'R1'> A; allocate A to b; }")
+    from sysml2kit.model import AllocateRelationship
+
+    rels = model.relationships(kind=AllocateRelationship)
+    assert len(rels) == 1
+    assert model.resolve(rels[0].source).declared_name == "A"
+    assert model.resolve(rels[0].target).declared_name == "b"
+
+
+def test_metadata_binding_survives_text():
+    model = parse(
+        "package P { analysis ana; metadata verificationBinding about ana { "
+        'engine = "fake"; configRef = "cfg.yaml"; payload.x = 5.0; flag = true; } }'
+    )
+    from sysml2kit.model.metadata import MetadataUsage
+
+    (metadata,) = [el for el in model.iter_elements() if isinstance(el, MetadataUsage)]
+    assert metadata.declared_name == "verificationBinding"
+    assert metadata.values == {
+        "engine": "fake",
+        "configRef": "cfg.yaml",
+        "payload.x": 5.0,
+        "flag": True,
+    }
+    assert metadata.annotated is not None
+    assert model.resolve(metadata.annotated).declared_name == "ana"
+
+
+def test_full_traceability_round_trip():
+    """The v0.4 M1 claim: all four relationship kinds and bindings survive text."""
+    from sysml2kit.model import (
+        AllocateRelationship,
+        DeriveRelationship,
+        SatisfyRelationship,
+        VerifyRelationship,
+    )
+    from sysml2kit.model.metadata import MetadataUsage
+
+    model = Model()
+    pkg = builder.pkg(model, "Loop")
+    part = builder.part(model, "amp", owner=pkg)
+    req_a = builder.req(model, "R1", "Power", owner=pkg)
+    req_b = builder.req(model, "R2", "DerivedPower", owner=pkg)
+    ana = builder.analysis(model, "study", owner=pkg)
+    builder.satisfy(model, source=part, target=req_a, owner=pkg)
+    builder.verify(model, source=ana, target=req_a, owner=pkg)
+    builder.derive(model, source=req_b, target=req_a, owner=pkg)
+    builder.allocate(model, source=req_a, target=part, owner=pkg)
+    builder.metadata(
+        model, ana, {"engine": "fake", "configRef": "c.json"}, name="verificationBinding"
+    )
+
+    reparsed = backend.parse(write_model(model))
+    for kind in (SatisfyRelationship, VerifyRelationship, DeriveRelationship, AllocateRelationship):
+        assert len(reparsed.relationships(kind=kind)) == 1, kind.__name__
+    (metadata,) = [el for el in reparsed.iter_elements() if isinstance(el, MetadataUsage)]
+    assert metadata.values["engine"] == "fake"
+
+    from sysml2kit.verify import extract_bindings
+
+    (binding,) = extract_bindings(reparsed)
+    assert binding.engine == "fake"
+    assert binding.config_ref == "c.json"

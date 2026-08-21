@@ -16,12 +16,12 @@ package Vehicle {
         doc /* The battery shall weigh at most 500 kg. */
         subject battery;
     }
-    dependency from BatteryMass to Range; // derive
+    dependency derive_1 from BatteryMass to Range;
     satisfy BatteryMass by battery;
     allocate Range to battery;
     analysis RangeAnalysis {
         subject battery;
         objective { doc /* Show the range requirement holds at nominal load. */ }
     }
-    dependency from RangeAnalysis to Range; // verify
+    dependency verify_1 from RangeAnalysis to Range;
 }

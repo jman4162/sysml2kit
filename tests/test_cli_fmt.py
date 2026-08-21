@@ -112,12 +112,34 @@ BINDING_BEARING = """package P {
 
 
 def test_fmt_refuses_binding_bearing_file(tmp_path):
-    """Regression: before 0.3.1 fmt silently deleted bindings and verify links."""
+    """Regression: before 0.3.1 fmt silently deleted bindings and verify links.
+
+    Since the fidelity shim, metadata and NAMED dependencies round-trip; an
+    unnamed dependency (no verify_/derive_ prefix) still cannot, so fmt must
+    refuse this file for that channel.
+    """
     f = tmp_path / "m.sysml"
     f.write_text(BINDING_BEARING)
     result = runner.invoke(app, ["fmt", str(f)])
     assert result.exit_code == 1
     assert "refusing" in result.output
     assert "dependency" in result.output
-    assert "metadata" in result.output
     assert f.read_text() == BINDING_BEARING  # untouched
+
+
+def test_fmt_accepts_named_dependency_and_metadata(tmp_path):
+    """Writer-emitted traceability formats cleanly since the shim."""
+    f = tmp_path / "m.sysml"
+    f.write_text(
+        "package P {\n"
+        "    requirement <'R1'> A;\n"
+        "    analysis ana;\n"
+        "    dependency verify_1 from ana to A;\n"
+        '    metadata verificationBinding about ana {\n        engine = "fake";\n    }\n'
+        "}\n"
+    )
+    result = runner.invoke(app, ["fmt", str(f)])
+    assert result.exit_code == 0, result.output
+    out = f.read_text()
+    assert "dependency verify_1 from ana to A;" in out
+    assert 'engine = "fake";' in out

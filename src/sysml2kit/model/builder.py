@@ -194,9 +194,16 @@ def metadata(
     owner: Element | None = None,
     name: str | None = None,
 ) -> MetadataUsage:
-    """Attach a key-value metadata annotation to an element."""
+    """Attach a key-value metadata annotation to an element.
+
+    Default ownership is the annotated element's owner (package level): the
+    ``about`` reference carries the attachment, and package-level placement
+    is what survives the textual notation (metadata inside definition bodies
+    is dropped by the parser).
+    """
     usage = MetadataUsage(declared_name=name, annotated=Ref.to(annotated), values=dict(values))
-    return model.add(usage, owner=owner if owner is not None else annotated)  # type: ignore[return-value]
+    default_owner = model.owner_of(annotated) or annotated
+    return model.add(usage, owner=owner if owner is not None else default_owner)  # type: ignore[return-value]
 
 
 def _relate(
