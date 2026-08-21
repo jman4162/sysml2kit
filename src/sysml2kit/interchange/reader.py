@@ -81,8 +81,8 @@ def model_from_json(data: list[dict[str, Any]] | str | Path) -> Model:
     if isinstance(data, Path):
         records = json.loads(data.read_text())
     elif isinstance(data, str):
-        source = Path(data)
-        text = source.read_text() if source.exists() else data
+        # JSON text starts with a bracket after whitespace; anything else is a path.
+        text = data if data.lstrip().startswith("[") else Path(data).read_text()
         records = json.loads(text)
     else:
         records = data
