@@ -1,8 +1,9 @@
 name: conformance
 
-# Checks that every .sysml file this package's writer emits is accepted by the
-# OMG pilot implementation, run out of process (the jar is EPL-2.0 and is
-# downloaded at runtime, never committed).
+# Checks that every .sysml fixture this package's writer emits is accepted by
+# the OMG pilot implementation, run out of process via windtrader-java (the
+# jar is GPL-3.0 wrapping the EPL-2.0 pilot parser; downloaded at runtime and
+# sha256-pinned, never committed).
 
 on:
   schedule:
@@ -21,8 +22,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - uses: actions/cache@v4
+        with:
+          path: tools/conformance/.cache
+          key: windtrader-java-0f9eeed46929c41f
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - run: uv sync --group test
-      - run: uv run python tools/conformance/run_oracle.py
+      - run: uv run --no-project python tools/conformance/run_oracle.py
