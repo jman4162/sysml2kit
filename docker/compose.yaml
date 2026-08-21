@@ -1,0 +1,35 @@
+# Local Systems Modeling API server (the OMG pilot implementation) for
+# live-client testing:  docker compose -f docker/compose.yaml up -d
+# then scripts/wait_for_api.sh and  pytest -m api  with
+# SYSML2KIT_API_URL=http://localhost:9000.
+#
+# The app image is the MBSE-mashup containerization of the pilot, pinned by
+# digest (tag 244c221a..., pushed 2025-12-12). Its entrypoint rewrites
+# persistence.xml from the JDBC_*/HIBERNATE_* env vars; hbm2ddl=update
+# creates the schema on first boot. amd64-only: Apple-silicon hosts run it
+# under emulation (the platform key below).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: sysml2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sysml2"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+  api:
+    image: mbsemashup/sysmlv2-api.pilotimpl@sha256:ac5607986dd529fc98a55aa391ac9f51b275c36f74f946285121c896f7e914c6
+    platform: linux/amd64
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    environment:
+      JDBC_URL: jdbc:postgresql://db:5432/sysml2
+      JDBC_USER: postgres
+      JDBC_PASSWORD: mysecretpassword
+      HIBERNATE_HBM2DDL: update

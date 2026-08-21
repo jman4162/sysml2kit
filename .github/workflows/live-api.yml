@@ -1,0 +1,40 @@
+name: live-api
+
+# Weekly round trip against a real Systems Modeling API server (the pilot
+# implementation, run from docker/compose.yaml). Advisory while the
+# third-party image and the pilot's JSON dialect settle: continue-on-error
+# keeps a red run from masking real regressions caught by the respx suite.
+
+on:
+  schedule:
+    - cron: "31 6 * * 1" # Mondays 06:31 UTC
+  workflow_dispatch:
+
+jobs:
+  live:
+    name: pilot server round trip
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: docker compose -f docker/compose.yaml up -d
+      - run: scripts/wait_for_api.sh
+        env:
+          WAIT_FOR_API_TIMEOUT: "240"
+      - run: uv sync --group test
+      - run: uv run pytest -m api tests/test_api_live.py -v
+        env:
+          SYSML2KIT_API_URL: http://localhost:9000
+      - name: Collect server logs
+        if: failure()
+        run: docker compose -f docker/compose.yaml logs > compose-logs.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compose-logs
+          path: compose-logs.txt

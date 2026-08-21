@@ -6,16 +6,103 @@
 """
 
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 import sysml2kit
 from sysml2kit.model.container import Model
 
+if TYPE_CHECKING:
+    from sysml2kit.api import Project, SysMLApiClient
+
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 mcp_app = typer.Typer(help="MCP server (needs the mcp extra).")
 app.add_typer(mcp_app, name="mcp")
+api_app = typer.Typer(help="Talk to a Systems Modeling API server.")
+app.add_typer(api_app, name="api")
+
+UrlOption = Annotated[
+    str,
+    typer.Option("--url", envvar="SYSML2KIT_API_URL", help="Server base URL."),
+]
+TokenOption = Annotated[
+    str | None,
+    typer.Option("--token", envvar="SYSML2KIT_API_TOKEN", help="Bearer token."),
+]
+
+
+def _api_client(url: str, token: str | None) -> "SysMLApiClient":
+    from sysml2kit.api import SysMLApiClient
+
+    return SysMLApiClient(url, token=token)
+
+
+def _resolve_project(client: "SysMLApiClient", name_or_id: str) -> "Project":
+    projects = client.list_projects()
+    exact = [p for p in projects if p.id == name_or_id]
+    if exact:
+        return exact[0]
+    named = [p for p in projects if p.name == name_or_id]
+    if len(named) == 1:
+        return named[0]
+    if not named:
+        raise typer.BadParameter(f"no project named {name_or_id!r}")
+    raise typer.BadParameter(f"project name {name_or_id!r} is ambiguous; use the id")
+
+
+@api_app.command("projects")
+def api_projects(url: UrlOption, token: TokenOption = None) -> None:
+    """List projects on the server."""
+    with _api_client(url, token) as client:
+        for project in client.list_projects():
+            typer.echo(f"{project.id}  {project.name or ''}")
+
+
+@api_app.command("pull")
+def api_pull(
+    project: Annotated[str, typer.Argument(help="Project id or unique name.")],
+    commit: Annotated[str | None, typer.Argument(help="Commit id (default: newest).")] = None,
+    output: Annotated[Path, typer.Option("--output", "-o")] = Path("model.json"),
+    url: UrlOption = "",
+    token: TokenOption = None,
+) -> None:
+    """Download a commit's elements as interchange JSON."""
+    import json
+
+    from sysml2kit.interchange import model_to_json
+
+    with _api_client(url, token) as client:
+        resolved = _resolve_project(client, project)
+        commit_id = commit or client.head_commit(resolved.id).id
+        model = client.list_elements(resolved.id, commit_id)
+    output.write_text(json.dumps(model_to_json(model), indent=2) + "\n")
+    typer.echo(f"wrote {output} ({len(model.elements)} elements from commit {commit_id})")
+
+
+@api_app.command("push")
+def api_push(
+    file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    project: Annotated[str, typer.Option("--project", help="Project id or unique name.")],
+    create: Annotated[
+        bool, typer.Option("--create", help="Create the project when the name is unknown.")
+    ] = False,
+    message: Annotated[str | None, typer.Option("--message", "-m")] = None,
+    url: UrlOption = "",
+    token: TokenOption = None,
+) -> None:
+    """Push a model file to the server as a new commit."""
+    model = _load(file)
+    with _api_client(url, token) as client:
+        try:
+            resolved = _resolve_project(client, project)
+        except typer.BadParameter:
+            if not create:
+                raise
+            resolved = client.create_project(project)
+            typer.echo(f"created project {resolved.id}")
+        commit = client.push_model(resolved.id, model, message=message)
+    typer.echo(f"pushed {len(model.elements)} elements as commit {commit.id}")
 
 
 @mcp_app.command()

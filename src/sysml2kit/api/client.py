@@ -101,6 +101,37 @@ class SysMLApiClient:
             payload["description"] = description
         return Project.model_validate(self._post("/projects", payload))
 
+    @staticmethod
+    def _to_server_record(record: dict[str, Any]) -> dict[str, Any]:
+        """Adapt one interchange record to the pilot server's dialect.
+
+        The abstract syntax types relationship ``source``/``target`` as lists
+        of related elements; sysml2kit's records carry a single ``{"@id"}``
+        (a documented profile simplification). Wrap them on the way out; the
+        interchange reader unwraps single-element lists on the way back.
+        """
+        adapted = dict(record)
+        for key in ("source", "target", "definition"):
+            value = adapted.get(key)
+            if isinstance(value, dict) and set(value) == {"@id"}:
+                adapted[key] = [value]
+        # Profile simplifications with no server-side shape are dropped on
+        # push (multiplicity is opaque text here, a Multiplicity element
+        # there). Fidelity lives in interchange JSON files, not the server.
+        adapted.pop("multiplicity", None)
+        # RequirementUsage/RequirementDefinition `text` is List<String> there.
+        if isinstance(adapted.get("text"), str):
+            adapted["text"] = [adapted["text"]]
+        # The pilot's type vocabulary has no DeriveRequirementUsage or
+        # VerifyRequirementUsage; those push as Dependency (client/supplier),
+        # losing the kind distinction on pull — same degradation class as the
+        # textual notation. Full fidelity lives in interchange JSON files.
+        if adapted.get("@type") in ("DeriveRequirementUsage", "VerifyRequirementUsage"):
+            adapted["@type"] = "Dependency"
+            adapted["client"] = adapted.pop("source", None) or []
+            adapted["supplier"] = adapted.pop("target", None) or []
+        return adapted
+
     def push_model(
         self,
         project_id: str,
@@ -110,7 +141,10 @@ class SysMLApiClient:
         message: str | None = None,
     ) -> Commit:
         """Create a commit whose change set inserts every element of the model."""
-        change = [{"@type": "DataVersion", "payload": record} for record in model_to_json(model)]
+        change = [
+            {"@type": "DataVersion", "payload": self._to_server_record(record)}
+            for record in model_to_json(model)
+        ]
         payload: dict[str, Any] = {"@type": "Commit", "change": change}
         if message:
             payload["description"] = message
@@ -118,3 +152,10 @@ class SysMLApiClient:
         if branch:
             path += f"?branchId={branch}"
         return Commit.model_validate(self._post(path, payload))
+
+    def head_commit(self, project_id: str) -> Commit:
+        """Return the newest commit of a project; raises ApiError when empty."""
+        commits = self.list_commits(project_id)
+        if not commits:
+            raise ApiError(404, f"project {project_id} has no commits")
+        return commits[-1]

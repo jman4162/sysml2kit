@@ -8,6 +8,7 @@ unchanged.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -19,6 +20,8 @@ from sysml2kit.model.container import Model
 from sysml2kit.model.values import AttributeValue
 
 from .typemap import TYPE_TO_CLASS
+
+logger = logging.getLogger(__name__)
 
 
 class InterchangeError(ValueError):
@@ -41,6 +44,15 @@ def _decode(field_type: Any, value: Any) -> Any:
         return Ref(target=UUID(value["@id"]))
     if isinstance(value, dict) and field_type is AttributeValue:
         return AttributeValue(**value)
+    if (
+        isinstance(value, list)
+        and len(value) == 1
+        and isinstance(value[0], dict)
+        and set(value[0]) == {"@id"}
+    ):
+        # Servers speaking the full abstract syntax send relationship
+        # endpoints as single-element lists; the profile keeps a single Ref.
+        return Ref(target=UUID(value[0]["@id"]))
     if isinstance(value, list):
         return [_decode(None, item) for item in value]
     return value
@@ -65,15 +77,31 @@ def record_to_element(record: dict[str, Any]) -> Element:
         field = _snake(key)
         if field not in fields:
             continue
+        if value is None or value == []:
+            # Servers echo empty lists / nulls for absent references.
+            continue
         annotation = fields[field].annotation
+        if (
+            annotation in (str, str | None)
+            and isinstance(value, list)
+            and len(value) == 1
+            and isinstance(value[0], str)
+        ):
+            # Full-abstract-syntax servers send e.g. requirement text as
+            # List<String>; the profile keeps a single string.
+            value = value[0]
         target_type = (
             AttributeValue if annotation in (AttributeValue, AttributeValue | None) else None
         )
         kwargs[field] = _decode(target_type, value)
     try:
         return cls(**kwargs)
-    except ValidationError as exc:
-        raise InterchangeError(f"invalid {type_name} record {eid}: {exc}") from exc
+    except ValidationError:
+        # A known @type whose record doesn't fit the profile shape (e.g. a
+        # server strips relationship endpoints): keep it opaquely rather than
+        # fail the whole read, matching the passthrough guarantee.
+        logger.warning("%s record %s does not fit the profile shape; kept opaque", type_name, eid)
+        return OpaqueElement(element_id=UUID(eid), type_name=type_name, raw=dict(record))
 
 
 def model_from_json(data: list[dict[str, Any]] | str | Path) -> Model:
