@@ -126,7 +126,9 @@ def _render(model: Model, element: Element, depth: int) -> str:
     body: list[str] = []
     inner = _INDENT * (depth + 1)
     if isinstance(element, Package):
-        body.extend(f"{inner}import {imp};" for imp in element.imports)
+        # The visibility keyword is spec-legal and what parsers accept; a bare
+        # `import` is rejected by the sysmlpy grammar.
+        body.extend(f"{inner}public import {imp};" for imp in element.imports)
     body.extend(_doc_block(element, inner))
     if isinstance(element, RequirementUsage):
         if element.text:

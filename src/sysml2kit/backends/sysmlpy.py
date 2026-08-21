@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from sysml2kit.model.analysis import AnalysisCaseUsage
+from sysml2kit.model.analysis import AnalysisCaseDefinition, AnalysisCaseUsage
 from sysml2kit.model.base import Element, OpaqueElement
 from sysml2kit.model.container import Model
 from sysml2kit.model.requirements import (
@@ -51,6 +51,7 @@ _GRAMMAR_MAP: dict[str, type[Element]] = {
     "RequirementDefinition": RequirementDefinition,
     "RequirementUsage": RequirementUsage,
     "ConstraintUsage": ConstraintUsage,
+    "AnalysisCaseDefinition": AnalysisCaseDefinition,
     "AnalysisCaseUsage": AnalysisCaseUsage,
     "ConnectionUsage": ConnectionUsage,
 }
