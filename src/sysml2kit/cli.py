@@ -209,7 +209,16 @@ def diff(
 
 @app.command()
 def verify(
-    file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    files: Annotated[
+        list[Path],
+        typer.Argument(
+            exists=True,
+            dir_okay=False,
+            help="Model file, or several .sysml files parsed as one model "
+            "(a model that types its bindings needs the library file that "
+            "declares the metadata def).",
+        ),
+    ],
     engine: Annotated[
         list[str] | None,
         typer.Option(
@@ -266,10 +275,17 @@ def verify(
 
     if policy not in ("all", "cheapest", "escalate"):
         raise typer.BadParameter("--policy must be all, cheapest, or escalate")
-    model = _load(file)
+    if len(files) > 1:
+        if any(path.suffix != ".sysml" for path in files):
+            raise typer.BadParameter("multiple files must all be .sysml")
+        from sysml2kit.backends import get_backend
+
+        model = get_backend("sysmlpy").parse_files(files)
+    else:
+        model = _load(files[0])
     run = run_verification(
         model,
-        model_path=file,
+        model_path=files[0],
         registry=registry,
         timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
         analyses=analysis,
@@ -278,6 +294,12 @@ def verify(
         fidelities=fidelity,
     )
 
+    if not run.analyses:
+        typer.echo(
+            "warning: no verificationBinding metadata found (a typed binding "
+            "needs the file declaring its metadata def in the same parse)",
+            err=True,
+        )
     for result in run.analyses:
         state = f"error: {result.error}" if result.error else f"{len(result.metrics)} metrics"
         typer.echo(f"analysis {result.analysis} [{result.engine}]: {state}")

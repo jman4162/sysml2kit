@@ -316,7 +316,7 @@ def grammar_signature(text: str) -> dict[str, int]:
     return counts
 
 
-_METADATA_FEATURE_TEXT = re.compile(r"^([A-Za-z_][\w.]*)=(.+?);?$")
+_METADATA_FEATURE_TEXT = re.compile(r"^(?:'([^']+)'|([A-Za-z_][\w.]*))=(.+?);?$")
 
 
 def _metadata_values(texts: list[str]) -> dict[str, str | float | int | bool]:
@@ -327,7 +327,7 @@ def _metadata_values(texts: list[str]) -> dict[str, str | float | int | bool]:
         if not match:
             logger.warning("unparsed metadata body feature %r", text)
             continue
-        key, raw = match.group(1), match.group(2).strip()
+        key, raw = match.group(1) or match.group(2), match.group(3).strip()
         if raw.startswith('"') and raw.endswith('"'):
             values[key] = raw[1:-1]
         elif raw in ("true", "false"):

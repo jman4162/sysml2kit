@@ -227,3 +227,52 @@ def test_verify_bad_policy_rejected(tmp_path):
     path = bound_model_file(tmp_path)
     result = runner.invoke(app, ["verify", str(path), "--policy", "fastest"])
     assert result.exit_code == 2
+
+
+def test_verify_multiple_sysml_files_resolve_typed_bindings(tmp_path, monkeypatch):
+    (tmp_path / "lib.sysml").write_text("package Lib {\n    metadata def verificationBinding;\n}\n")
+    (tmp_path / "system.sysml").write_text(
+        "package System {\n"
+        "    part battery;\n"
+        "    requirement <'REQ-001'> Range {\n"
+        "        doc /* range */\n"
+        "        subject battery;\n"
+        '        attribute metricKey = "range_km";\n'
+        "        attribute threshold = 400.0 [km];\n"
+        '        attribute op = ">=";\n'
+        "    }\n"
+        "    analysis RangeAnalysis;\n"
+        "    metadata cheapBinding : verificationBinding about RangeAnalysis {\n"
+        '        engine = "fake";\n'
+        '        configRef = "cfg.json";\n'
+        "    }\n"
+        "    dependency verify_1 from RangeAnalysis to Range;\n"
+        "}\n"
+    )
+    (tmp_path / "cfg.json").write_text("{}")
+    result = runner.invoke(
+        app,
+        [
+            "verify",
+            str(tmp_path / "system.sysml"),
+            str(tmp_path / "lib.sysml"),
+            "--engine",
+            engine_arg(tmp_path, monkeypatch),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "PASS" in result.output
+
+
+def test_verify_warns_when_no_bindings(tmp_path):
+    (tmp_path / "empty.sysml").write_text("package Empty {\n    part battery;\n}\n")
+    result = runner.invoke(app, ["verify", str(tmp_path / "empty.sysml")])
+    assert result.exit_code == 0
+    assert "no verificationBinding" in result.output
+
+
+def test_verify_rejects_mixed_multi_file(tmp_path, monkeypatch):
+    path = bound_model_file(tmp_path)
+    (tmp_path / "lib.sysml").write_text("package Lib {}\n")
+    result = runner.invoke(app, ["verify", str(path), str(tmp_path / "lib.sysml")])
+    assert result.exit_code == 2
