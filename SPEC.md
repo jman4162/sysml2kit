@@ -46,6 +46,27 @@ not drop elements the profile lacks classes for.
 - **Documentation is a field** (`Element.doc`), not an owned `Documentation`
   element; the writer emits `doc /* ... */` bodies.
 
+## Text parse fidelity (sysmlpy backend, 0.36.x)
+
+The backend parses via ``sysmlpy.load_grammar_antlr`` and walks the raw
+ANTLR dict (the wrapper-object loader rebuilds usage bodies lossily and is
+not used). What survives a text round trip:
+
+| Round-trips | Lost upstream (sysmlpy visitor discards it) |
+|---|---|
+| names, short names | `dependency A to B;` statements (how the writer emits verify/derive) |
+| docs (package/part/requirement scope) | `allocate X to Y;` endpoints |
+| feature typing, incl. cross-package | `connect a.pa to b.pb;` endpoints |
+| multiplicity | `verification` case usages (dropped entirely) |
+| attribute values with units | value provenance (`source`/`confidence` have no textual slot) |
+| requirement subject and text | |
+| satisfy (package level and inside part bodies) | |
+
+Consequence: **satisfy traceability survives text; verify/derive/allocate
+require the JSON interchange.** The losses are pinned by tests in
+`tests/test_backend_fidelity.py` so an upstream sysmlpy fix surfaces as a
+test failure.
+
 ## Identity and ownership
 
 - Every element has a UUID `element_id`, mapping to the API JSON `@id`.
