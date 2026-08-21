@@ -15,13 +15,13 @@ def to_networkx(model: Model) -> Any:
     ``kind="owns"`` or the relationship class name.
     """
     try:
-        import networkx
+        import networkx as nx
     except ImportError as exc:
         raise ImportError(
             "graph export needs the 'graph' extra: pip install sysml2kit[graph]"
         ) from exc
 
-    graph = networkx.DiGraph()
+    graph = nx.DiGraph()
     for eid, element in model.elements.items():
         graph.add_node(str(eid), kind=type(element).__name__, name=element.label)
     for child, owner in model.owner.items():
