@@ -9,11 +9,11 @@
 API-first Python tooling for building, querying, validating, and automating
 SysML v2 models.
 
-> **Status: pre-alpha.** The 0.3.x line covers the full loop: model, writer,
+> **Status: pre-alpha.** The 0.4.x line covers the full loop: model, writer,
 > interchange, queries, validation, diff, mermaid views, parse backend, MCP
-> server, API client with a live-server harness, and verification execution.
-> The API may still move between minor versions; pin an exact version if you
-> depend on it. Changes: [CHANGELOG.md](CHANGELOG.md).
+> server, API client with a live-server harness, and multi-fidelity
+> verification execution. The API may still move between minor versions; pin
+> an exact version if you depend on it. Changes: [CHANGELOG.md](CHANGELOG.md).
 
 `sysml2kit` is the requirements/architecture/traceability layer for
 engineering automation stacks: build a system model in Python, emit standard
@@ -42,7 +42,12 @@ https://jman4162.github.io/sysml2kit/
 - **Verification execution**: `verificationBinding` metadata binds an
   analysis case to an engine from the `sysml2kit.engines` entry-point group;
   `sysml2kit verify` runs it and checks each requirement with margins, and
-  can write results back into the model with provenance.
+  can write results back into the model with provenance. Sibling bindings
+  labeled with `fidelity`/`costSeconds` form a fidelity ladder: `--policy
+  all` reports the cross-rung spread as an error bar, `--policy escalate
+  --budget-s N` spends a compute budget on the thinnest margins first, and
+  every run records measured seconds per rung. The whole loop — bindings,
+  verify links, policies — works from `.sysml` text as well as JSON.
 - **Mermaid views**: ownership-tree and requirement-trace diagrams.
 - **MCP server**: nine tools for agents (`sysml2kit mcp serve`).
 - **API client**: a thin HTTP client for the OMG Systems Modeling API and

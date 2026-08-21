@@ -1,8 +1,8 @@
 """Runtime patches for sysmlpy's ANTLR visitor, applied under a version guard.
 
-Three upstream defects lose data before the raw dict exists; fixes for two
-are open upstream (mycr0ft/sysmlpy #6 and #7) and the third is filed with
-them. Until a release ships them, this module applies equivalent patches to
+Three upstream defects lose data before the raw dict exists; fixes are
+open upstream (mycr0ft/sysmlpy #6, #7, and #9, filed as issue #8). Until a
+release ships them, this module applies equivalent patches to
 ``sysmlpy.antlr_visitor`` at backend import:
 
 - ``allocate X to Y`` endpoints reach the dict (a ``part`` connector, the
@@ -152,5 +152,5 @@ def apply_patches() -> bool:
     visitor._visit_definition_element_dict = patched_definition_element
     visitor._visit_metadata_feature_dict = patched_metadata
     setattr(visitor, _APPLIED_MARKER, True)
-    logger.info("sysmlpy %s fidelity patches active (upstream: mycr0ft/sysmlpy#6, #7)", version)
+    logger.info("sysmlpy %s fidelity patches active (upstream: mycr0ft/sysmlpy#6, #7, #9)", version)
     return True

@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.4.0 — 2026-08-21
+
+The multi-fidelity release: one analysis, several engines, honest error
+bars, and budgeted escalation — from JSON or from the textual notation.
+
+- **Fidelity ladders.** An analysis may carry sibling
+  `verificationBinding` annotations labeled by two new reserved keys,
+  `fidelity` (rung name) and `costSeconds` (declared wall-clock, which
+  orders the ladder). Sibling bindings are named metadata usages typed
+  by a `metadata def verificationBinding` (`builder.metadata_def` +
+  `builder.metadata(..., definition=...)`), since distinct names are
+  what stable-id hashing needs; a single binding may still just be named
+  `verificationBinding`. Validation rule S2K010 rejects duplicate rung
+  labels and warns on mixed labeled/unlabeled siblings.
+- **Runner policies.** `run_verification(..., policy=...)`: `all`
+  (default) runs every rung and reports the cross-rung `spread` per
+  requirement; `cheapest` runs one; `escalate` runs the cheapest rungs,
+  ranks must-requirements by margin thinness, and escalates within
+  `budget_s` against declared costs (verdicts carry `escalated_from`).
+  Every run records measured `seconds_by_fidelity`; write-back uses the
+  highest-fidelity verdict and names the rung in its provenance. CLI:
+  `verify --policy/--budget-s/--fidelity`; MCP `requirements_verify`
+  gains `policy`/`budget_s` and returns `seconds_by_fidelity`.
+- **Text notation carries the whole loop.** A guarded runtime shim
+  (`backends/_sysmlpy_patches.py`, mirroring upstream mycr0ft/sysmlpy
+  #6, #7, and #9) fixes three visitor defects, and the writer emits
+  named dependencies (`dependency verify_1 from A to B;`), typed
+  bindings, and package-level metadata — so satisfy, verify, derive,
+  allocate, and bindings all round-trip through `.sysml` text.
+  `sysml2kit verify` accepts several text files parsed as one model
+  (the file declaring the `metadata def` rides along) and warns instead
+  of passing vacuously when no bindings are found.
+- **Ownership survives the pilot server.** `push_model` runs in two
+  phases (elements with `aliasIds`, then `OwningMembership` records
+  mapped through server-minted ids); the interchange reader folds
+  membership records back into the owner map. New `api branches` and
+  `api commits` subcommands.
+- Pins: sysmlpy floor 0.36.3; the hatchling `<1.32` cap is lifted
+  (Metadata-Version 2.5 passes current twine); the 2026-05 spec pin was
+  re-confirmed as newest on 2026-08-21.
+
 ## 0.3.1 — 2026-08-21
 
 Hotfix release; upgrade recommended.
